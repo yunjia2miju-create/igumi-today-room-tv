@@ -1,0 +1,8 @@
+{
+  "name": "태왕 부동산 원고 비서",
+  "description": "부동산 매물 정보를 분석하고 고품격 스토리텔링 원고를 자동 생성하는 AI 비서",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

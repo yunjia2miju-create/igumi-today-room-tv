@@ -1,0 +1,142 @@
+@import "tailwindcss";
+
+body {
+    font-family: 'Noto Sans KR', sans-serif;
+    background-color: #f8fafc;
+    -webkit-tap-highlight-color: transparent;
+}
+
+h1, h2, h3, h4, h5, h6 {
+    letter-spacing: -0.05em;
+}
+
+/* Mobile Scrollbar Hide for Categories */
+.scrollbar-hide::-webkit-scrollbar {
+    display: none;
+}
+.scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+}
+
+@keyframes scrollUp {
+    0% { transform: translateY(0); }
+    100% { transform: translateY(-50%); }
+}
+
+.animate-scroll-up {
+    animation: scrollUp 40s linear infinite;
+}
+
+.animate-scroll-up:hover {
+    animation-play-state: paused;
+}
+
+@keyframes sparkle {
+    0%, 100% { transform: scale(1); opacity: 1; filter: drop-shadow(0 0 2px rgba(245, 158, 11, 0.5)); }
+    50% { transform: scale(1.25); opacity: 0.9; filter: drop-shadow(0 0 8px rgba(245, 158, 11, 0.8)); }
+}
+
+.animate-sparkle {
+    display: inline-block;
+    animation: sparkle 1.2s ease-in-out infinite;
+}
+
+/* Style for visual elegance of watermark overlay on wide images */
+.watermark-container {
+    position: relative;
+}
+.watermark-overlay {
+    position: absolute;
+    bottom: 8px;
+    right: 8px;
+    background-color: rgba(0, 0, 0, 0.65);
+    backdrop-filter: blur(4px);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    color: rgba(255, 255, 255, 0.95);
+    font-size: 10px;
+    font-weight: 800;
+    padding: 4px 8px;
+    border-radius: 0px;
+    letter-spacing: 0.05em;
+    pointer-events: none;
+    user-select: none;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+@media (min-width: 768px) {
+    .watermark-overlay {
+        bottom: 12px;
+        right: 12px;
+        font-size: 11px;
+        padding: 5px 10px;
+    }
+}
+
+/* Markdown Body Styles */
+.markdown-content h1 {
+    font-size: 1.5rem;
+    font-weight: 900;
+    color: #1e293b;
+    margin-top: 2rem;
+    margin-bottom: 1rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 2px solid #10b981;
+    display: block;
+}
+
+.markdown-content h2 {
+    font-size: 1.25rem;
+    font-weight: 800;
+    color: #334155;
+    margin-top: 1.5rem;
+    margin-bottom: 0.75rem;
+    padding-left: 0.75rem;
+    border-left: 4px solid #10b981;
+}
+
+.markdown-content h3 {
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: #475569;
+    margin-top: 1.25rem;
+    margin-bottom: 0.5rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.markdown-content h3::before {
+    content: '•';
+    color: #10b981;
+    font-size: 1.5rem;
+}
+
+.markdown-content p {
+    margin-bottom: 1rem;
+    line-height: 1.8;
+}
+
+.markdown-content ul {
+    list-style-type: disc;
+    margin-bottom: 1rem;
+    padding-left: 1.5rem;
+}
+
+.markdown-content ol {
+    list-style-type: decimal;
+    margin-bottom: 1rem;
+    padding-left: 1.5rem;
+}
+
+.markdown-content li {
+    margin-bottom: 0.25rem;
+}
+
+.markdown-content strong {
+    color: #0f172a;
+    font-weight: 800;
+}
+
