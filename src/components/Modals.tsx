@@ -2,6 +2,15 @@ import React, { useState } from 'react';
 import { useAppStore } from '../store';
 import { Post } from '../data';
 import PannellumViewer from './PannellumViewer';
+import { GoogleAuthProvider, signInWithPopup, signOut } from 'firebase/auth';
+import { auth } from '../firebase';
+import { 
+    getPostsService, 
+    savePostService, 
+    deletePostService, 
+    getInquiriesService, 
+    toggleInquiryProcessedService 
+} from '../firebaseService';
 
 interface ModalsProps {
     showToast: (msg: string, type: 'success' | 'error') => void;
@@ -39,6 +48,41 @@ export function Modals({
     const [adminTab, setAdminTab] = useState<'inquiry'|'posts'>('inquiry');
     const [isChangingPassword, setIsChangingPassword] = useState(false);
     const [newPassInput, setNewPassInput] = useState('');
+
+    const [firebaseUser, setFirebaseUser] = useState(auth.currentUser);
+
+    React.useEffect(() => {
+        const unsubscribe = auth.onAuthStateChanged((user) => {
+            setFirebaseUser(user);
+        });
+        return () => unsubscribe();
+    }, []);
+
+    const handleGoogleLogin = async () => {
+        const provider = new GoogleAuthProvider();
+        try {
+            const result = await signInWithPopup(auth, provider);
+            const user = result.user;
+            if (user.email === 'yunjia2miju@gmail.com') {
+                showToast("구글 관리자 인증 완료! 클라우드 동기화가 활성화되었습니다.", "success");
+            } else {
+                showToast(`선택하신 계정(${user.email})은 태왕부동산 공식 관리자 계정이 아닙니다. yunjia2miju@gmail.com 계정으로 로그인해 주세요.`, "error");
+                await signOut(auth);
+            }
+        } catch (err) {
+            console.error(err);
+            showToast("구글 로그인에 실패했습니다. 팝업 차단 설정을 해제해 주세요.", "error");
+        }
+    };
+
+    const handleGoogleLogout = async () => {
+        try {
+            await signOut(auth);
+            showToast("구글 클라우드 동기화 연결이 해제되었습니다.", "success");
+        } catch (err) {
+            console.error(err);
+        }
+    };
 
     // --- State & Handlers for Admin 2-Factor Authentication ---
     const [loginStep, setLoginStep] = useState<'password' | 'sms'>('password');
@@ -215,12 +259,10 @@ export function Modals({
     const handleDeletePost = async (id: string) => {
         if(confirm('정말 삭제하시겠습니까?')) {
             try {
-                const res = await fetch(`/api/posts/${id}`, { method: 'DELETE' });
-                const updated = await res.json();
-                if (Array.isArray(updated)) {
-                    setPosts(updated);
-                    showToast("삭제 완료", "success");
-                }
+                await deletePostService(id);
+                const updated = await getPostsService();
+                setPosts(updated);
+                showToast("삭제 완료", "success");
             } catch (err) {
                 console.error(err);
                 showToast("삭제 과정 전송에 실패했습니다.", "error");
@@ -229,9 +271,11 @@ export function Modals({
     };
 
     const toggleInquiryProcessed = async (id: string) => {
+        const inq = inquiries.find(i => i.id === id);
+        if (!inq) return;
         try {
-            const res = await fetch(`/api/inquiries/${id}/toggle`, { method: 'POST' });
-            const updated = await res.json();
+            await toggleInquiryProcessedService(id, inq.processed);
+            const updated = await getInquiriesService();
             if (Array.isArray(updated)) {
                 setInquiries(updated);
             }
@@ -486,19 +530,13 @@ export function Modals({
         };
 
         try {
-            const res = await fetch('/api/posts', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(newPost)
-            });
-            const updated = await res.json();
-            if (Array.isArray(updated)) {
-                setPosts(updated);
-                showToast(editingPostId ? "수정 저장 완료!" : "매물 등록 완료!", "success");
-            }
+            await savePostService(newPost);
+            const updated = await getPostsService();
+            setPosts(updated);
+            showToast(editingPostId ? "수정 저장 완료!" : "매물 등록 완료!", "success");
         } catch (err) {
             console.error(err);
-            showToast("서버에 매물을 등록하지 못했습니다.", "error");
+            showToast("매물을 등록하지 못했습니다. (권한이 없는 경우 구글 관리자 ID 로그인을 완료해 주세요)", "error");
         }
         setWriteModalOpen(false);
         setEditingPostId(null);
@@ -690,6 +728,53 @@ export function Modals({
                         </div>
                     </div>
                         <div className="flex-grow overflow-y-auto p-4 sm:p-6 lg:p-8 space-y-6 sm:space-y-8">
+                            
+                            {/* Firebase/Cloud Firestore Sync Controls Card */}
+                            <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200/80 shadow-sm space-y-3.5">
+                                <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+                                    <div className="flex items-start gap-2.5">
+                                        <div className={`p-2.5 rounded-xl shrink-0 ${firebaseUser && firebaseUser.email === 'yunjia2miju@gmail.com' ? 'bg-emerald-50 text-emerald-600' : 'bg-amber-50 text-amber-600'}`}>
+                                            <i className={`text-lg sm:text-2xl fa-solid ${firebaseUser && firebaseUser.email === 'yunjia2miju@gmail.com' ? 'fa-cloud-arrow-up' : 'fa-triangle-exclamation'}`}></i>
+                                        </div>
+                                        <div className="space-y-0.5 text-left">
+                                            <h4 className="text-sm font-black text-slate-900 flex items-center gap-1.5">
+                                                <span>실시간 구글 클라우드 동기화</span>
+                                                {firebaseUser && firebaseUser.email === 'yunjia2miju@gmail.com' ? (
+                                                    <span className="bg-emerald-100 text-emerald-700 text-[10px] font-bold px-2 py-0.5 rounded-full">연결 완료</span>
+                                                ) : (
+                                                    <span className="bg-amber-100 text-amber-700 text-[10px] font-bold px-2 py-0.5 rounded-full font-sans">연결 권장</span>
+                                                )}
+                                            </h4>
+                                            <p className="text-slate-500 text-xs leading-relaxed max-w-2xl font-sans">
+                                                {firebaseUser && firebaseUser.email === 'yunjia2miju@gmail.com' ? (
+                                                    <span>현재 사이트가 <b>구글 파이어베이스 클라우드 데이터베이스</b>와 성공적으로 동기화 중입니다. 추가되는 모든 매물은 방문한 유저들에게 실시간으로 연동되어 표시됩니다. (소유자 연락처 조회 및 매물 CRUD 권한 포함)</span>
+                                                ) : (
+                                                    <span>넷플라이(Netlify) 등에 정적 웹사이트 업로드 후, 등록한 매물이 실시간 인터넷망의 모든 방문자에게 공통으로 노출되게 하려면 데이터 저장소 권한이 승인되어야 합니다. 아래 버튼을 통해 소장님 계정 로그인을 완료해 주세요.</span>
+                                                )}
+                                            </p>
+                                        </div>
+                                    </div>
+                                    <div className="shrink-0 flex items-center w-full lg:w-auto">
+                                        {firebaseUser && firebaseUser.email === 'yunjia2miju@gmail.com' ? (
+                                            <button 
+                                                onClick={handleGoogleLogout}
+                                                className="w-full lg:w-auto text-xs font-bold text-red-600 hover:text-white bg-red-50 hover:bg-red-600 border border-red-100 px-4 py-2.5 rounded-xl transition-all cursor-pointer"
+                                            >
+                                                구글 로그아웃
+                                            </button>
+                                        ) : (
+                                            <button 
+                                                onClick={handleGoogleLogin}
+                                                className="w-full lg:w-auto inline-flex items-center justify-center gap-2 text-xs font-black text-white bg-slate-900 hover:bg-emerald-700 px-4 py-3 rounded-xl transition-all shadow-md active:scale-95 cursor-pointer"
+                                            >
+                                                <i className="fa-brands fa-google text-red-400"></i>
+                                                <span>구글 계정(yunjia2miju@gmail.com) 연동 로그인</span>
+                                            </button>
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
+
                             <div className="flex border-b border-slate-200 w-full overflow-x-auto scrollbar-hide shrink-0">
                                 <button onClick={() => setAdminTab('inquiry')} className={`py-2.5 sm:py-3 px-4 sm:px-6 text-xs sm:text-sm font-bold transition-all whitespace-nowrap ${adminTab === 'inquiry' ? 'text-emerald-600 border-b-2 border-emerald-600' : 'text-slate-400 hover:text-slate-600'}`}>상담/중개 의뢰 목록</button>
                                 <button onClick={() => setAdminTab('posts')} className={`py-2.5 sm:py-3 px-4 sm:px-6 text-xs sm:text-sm font-bold transition-all whitespace-nowrap ${adminTab === 'posts' ? 'text-emerald-600 border-b-2 border-emerald-600' : 'text-slate-400 hover:text-slate-600'}`}>발행된 매물 관리</button>

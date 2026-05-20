@@ -1,0 +1,60 @@
+{
+  "entities": {
+    "Post": {
+      "title": "Post",
+      "description": "A real estate property listing matching standard Korean parameters",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "category": { "type": "string" },
+        "dong": { "type": "string" },
+        "building": { "type": "string" },
+        "room": { "type": "string" },
+        "floor": { "type": "string" },
+        "totalFloor": { "type": "string" },
+        "price": { "type": "string" },
+        "manageFee": { "type": "string" },
+        "phone": { "type": "string" },
+        "ownerPhone": { "type": "string" },
+        "title": { "type": "string" },
+        "remarks": { "type": "string" },
+        "thumbnail": { "type": "string" },
+        "intro": { "type": "string" },
+        "body": { "type": "string" },
+        "images": { "type": "string" },
+        "panoImage": { "type": "string" },
+        "panoramas": { "type": "string" },
+        "video": { "type": "string" },
+        "address": { "type": "string" },
+        "transactionType": { "type": "string" },
+        "isRecommended": { "type": "boolean" },
+        "createdAt": { "type": "number" }
+      },
+      "required": ["id", "category", "dong", "building", "room", "price", "manageFee", "phone", "title", "address", "transactionType", "isRecommended", "createdAt"]
+    },
+    "Inquiry": {
+      "title": "Inquiry",
+      "description": "Customer consult or transaction request submitted to the property manager",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "phone": { "type": "string" },
+        "message": { "type": "string" },
+        "processed": { "type": "boolean" },
+        "createdAt": { "type": "number" }
+      },
+      "required": ["id", "name", "phone", "message", "processed", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/posts/{postId}": {
+      "schema": "Post",
+      "description": "Global list of physical and virtual real estate listings synced cross-client"
+    },
+    "/inquiries/{inquiryId}": {
+      "schema": "Inquiry",
+      "description": "Customer transactions and counseling requests accessed securely by authorized admins"
+    }
+  }
+}

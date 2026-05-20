@@ -1,0 +1,100 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // 1. Global Safety Net (Default Deny Catch-all)
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // --- Helper Functions ---
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isAdmin() {
+      return isSignedIn() 
+        && request.auth.token.email == "yunjia2miju@gmail.com"
+        && request.auth.token.email_verified == true;
+    }
+
+    function isValidId(id) {
+      return id is string 
+        && id.size() <= 128 
+        && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    // --- Validation Functions for Entities ---
+    function isValidPost(data) {
+      return data.keys().hasAll(['id', 'category', 'dong', 'building', 'room', 'price', 'manageFee', 'phone', 'title', 'address', 'transactionType', 'isRecommended', 'createdAt'])
+        && data.id is string
+        && data.id.size() <= 128
+        && data.category is string
+        && data.category.size() <= 50
+        && data.dong is string
+        && data.dong.size() <= 50
+        && data.building is string
+        && data.building.size() <= 150
+        && data.room is string
+        && data.room.size() <= 50
+        && data.price is string
+        && data.price.size() <= 100
+        && data.manageFee is string
+        && data.manageFee.size() <= 100
+        && data.phone is string
+        && data.phone.size() <= 30
+        && data.title is string
+        && data.title.size() <= 300
+        && data.address is string
+        && data.address.size() <= 500
+        && data.transactionType is string
+        && data.transactionType.size() <= 50
+        && data.isRecommended is bool
+        && data.createdAt is int;
+    }
+
+    function isValidInquiry(data) {
+      return data.keys().hasAll(['id', 'name', 'phone', 'message', 'processed', 'createdAt'])
+        && data.id is string
+        && data.id.size() <= 128
+        && data.name is string
+        && data.name.size() <= 100
+        && data.phone is string
+        && data.phone.size() <= 50
+        && data.message is string
+        && data.message.size() <= 5000
+        && data.processed is bool
+        && data.createdAt is int;
+    }
+
+    // --- Path Match Rules ---
+
+    // 1. Posts (매물 장부)
+    match /posts/{postId} {
+      // Anyone can search and read listings
+      allow read: if true;
+      
+      // Admins (and only the authorized email) can register, edit, and delete listings
+      allow create: if isAdmin() 
+        && isValidId(postId) 
+        && isValidPost(request.resource.data);
+        
+      allow update: if isAdmin() 
+        && isValidPost(request.resource.data);
+        
+      allow delete: if isAdmin();
+    }
+
+    // 2. Inquiries (상담 의뢰 접수)
+    match /inquiries/{inquiryId} {
+      // Anyone can submit raw inquiries (to facilitate prospective client booking)
+      allow create: if isValidId(inquiryId) 
+        && isValidInquiry(request.resource.data);
+        
+      // Only the admin can view, change status, or purge inquiries
+      allow read: if isAdmin();
+      allow update: if isAdmin() && isValidInquiry(request.resource.data);
+      allow delete: if isAdmin();
+    }
+  }
+}

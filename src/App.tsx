@@ -3,6 +3,9 @@ import { useAppStore } from './store';
 import { MainTab } from './components/MainTab';
 import { DetailTab } from './components/DetailTab';
 import { Modals } from './components/Modals';
+import { getPostsService, getInquiriesService } from './firebaseService';
+import { onAuthStateChanged } from 'firebase/auth';
+import { auth } from './firebase';
 
 // --- Toast Context Helper ---
 export const ToastContext = React.createContext<{ showToast: (msg: string, type?: 'success'|'error') => void } | null>(null);
@@ -32,25 +35,27 @@ export default function App() {
     const [toasts, setToasts] = useState<{id: number, msg: string, type: 'success'|'error'}[]>([]);
 
     useEffect(() => {
-        // Fetch posts from database
-        fetch('/api/posts')
-            .then(res => res.json())
+        // Fetch posts through unified cloud database service
+        getPostsService()
             .then(data => {
-                if (Array.isArray(data)) {
-                    setPosts(data);
-                }
+                setPosts(data);
             })
             .catch(err => console.error("매물 목록을 불러오는 중 오류 발생:", err));
 
-        // Fetch inquiries from database
-        fetch('/api/inquiries')
-            .then(res => res.json())
+        // Fetch inquiries through unified cloud database service
+        getInquiriesService()
             .then(data => {
-                if (Array.isArray(data)) {
-                    setInquiries(data);
-                }
+                setInquiries(data);
             })
             .catch(err => console.error("의뢰 목록을 불러오는 중 오류 발생:", err));
+
+        // Automatically restore session if verified Google Admin user is logged in
+        const unsubscribe = onAuthStateChanged(auth, (user) => {
+            if (user && user.email === 'yunjia2miju@gmail.com' && user.emailVerified) {
+                setIsAdminLoggedIn(true);
+            }
+        });
+        return () => unsubscribe();
     }, []);
 
     const showToast = (msg: string, type: 'success'|'error' = 'success') => {

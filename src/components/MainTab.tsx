@@ -1,6 +1,7 @@
 import React from 'react';
 import { useAppStore } from '../store';
 import { gumiDongs } from '../data';
+import { submitInquiryService, getInquiriesService } from '../firebaseService';
 
 export const MainTab = ({ 
     openPhoneSelectModal, 
@@ -81,22 +82,20 @@ export const MainTab = ({
     const [inquiryData, setInquiryData] = React.useState({ name: '', phone: '', message: '' });
     const handleInquirySubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        const newInq = { ...inquiryData, id: 'local-inq-' + Date.now(), processed: false, createdAt: Date.now() };
+        const newInq = { ...inquiryData, id: 'inq-' + Date.now(), processed: false, createdAt: Date.now() };
         try {
-            const res = await fetch('/api/inquiries', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(newInq)
-            });
-            const updated = await res.json();
+            await submitInquiryService(newInq);
+            const updated = await getInquiriesService();
             if (Array.isArray(updated)) {
                 setInquiries(updated);
-                setInquiryData({ name: '', phone: '', message: '' });
-                showToast("의뢰 접수 완료! 소장님이 곧 연락드리겠습니다.", "success");
+            } else {
+                setInquiries([newInq, ...inquiries]);
             }
+            setInquiryData({ name: '', phone: '', message: '' });
+            showToast("의뢰 접수 완료! 소장님이 곧 연락드리겠습니다.", "success");
         } catch (err) {
             console.error(err);
-            showToast("서버 통신 실패로 접수되지 않았습니다.", "error");
+            showToast("의뢰 접수에 실패했습니다. 잠시 후 다시 시도해 주세요.", "error");
         }
     };
 
