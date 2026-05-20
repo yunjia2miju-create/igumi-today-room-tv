@@ -7,6 +7,52 @@ import dotenv from 'dotenv';
 import { defaultPosts } from './src/data';
 dotenv.config();
 
+function cleanAndParseJson(text: string): any {
+  let cleaned = text.trim();
+  
+  // 1. Remove markdown code block fences if present
+  if (cleaned.startsWith("```")) {
+    cleaned = cleaned.replace(/^```(?:json)?\s*/i, "");
+    cleaned = cleaned.replace(/\s*```$/, "");
+  }
+  
+  cleaned = cleaned.trim();
+  
+  try {
+    return JSON.parse(cleaned);
+  } catch (err) {
+    console.warn("Standard JSON.parse failed, attempting control-character clean and parse...");
+    
+    // 2. Escape literal carriage returns and newlines that are inside JSON string values.
+    let inString = false;
+    let escaped = "";
+    for (let i = 0; i < cleaned.length; i++) {
+      const char = cleaned[i];
+      if (char === '"' && (i === 0 || cleaned[i - 1] !== '\\')) {
+        inString = !inString;
+        escaped += char;
+      } else if (inString) {
+        if (char === '\n') {
+          escaped += '\\n';
+        } else if (char === '\r') {
+          escaped += '\\r';
+        } else {
+          escaped += char;
+        }
+      } else {
+        escaped += char;
+      }
+    }
+    
+    try {
+      return JSON.parse(escaped);
+    } catch (secondErr) {
+      console.error("Advanced JSON parsing failure:", secondErr);
+      throw secondErr;
+    }
+  }
+}
+
 async function startServer() {
   const app = express();
   const PORT = 3000;
@@ -132,7 +178,8 @@ async function startServer() {
                     model: "gemini-3.5-flash",
                     contents: `매물 정보: ${rawText}`,
                     config: {
-                        systemInstruction: "매물 원고/정보를 해독해 주어진 JSON 규격에 맞게 파싱하세요. 비어있거나 모호한 값은 빈 문자열(\"\") 또는 기본값으로 처리하세요. 각 필드 매핑 규칙은 다음과 같습니다:\n- transactionType: 거래 형태. 매매, 전세, 월세 중 하나여야 합니다.\n- category: 매물 분류. '원룸', '미투', '투룸', '쓰리룸', '오피스텔', '상가', '아파트', '다세대', '주택', '땅' 등에서 가장 어울리는 것으로 매핑합니다.\n- dong: 구미 시내의 법정동명 (예: 송정동, 형곡동, 임은동 등 '동읍면'으로 끝나는 단어).\n- building: 건물명 및 단지명 (예: 송정태왕아너스타워).\n- room: 호실/호수 정보 (예: 1805호 -> 1805, 503호 -> 503). 숫자만 있거나 생략 가능.\n- floor: 해당층 (예: 20층 -> 20, 2층 -> 2. 숫자만 추출).\n- totalFloor: 건물 전체층/총층 (예: 24층 -> 24. 숫자만 추출).\n- price: 보증금/월세 또는 매매 금액 (예: 500/55, 3000/25, 1억2천 등).\n- manageFee: 관리비 금액 (예: 5, 10). 숫자 혹은 내용.\n- ownerPhone: 임대인(집주인) 연락처 (예: 010-7590-0111).\n- remarks: 비고, 특이사항, 현관번호 등 (예: ▶현관:9246 호실:6000).\n- title: 블로그 홍보 제목 (예: 남향 채광 가득한 햇살 원룸 실사). 존재하지 않거나 비었으면 매물의 장점을 담아 매력적인 제목을 창작해 주세요.\n- intro: 체험적 서론 (방문 시 느낀 채광, 첫인상 등을 상세한 에세이 형식으로 작성한 서론). 존재하지 않거나 빈 경우, 건물명이나 거래조건을 바탕으로 자연스럽게 생성해 채워주세요.\n- body: 상세한 관찰 본론 (수압 체크, 옵션 상태, 내부 관찰 결과 등을 마크다운 헤더를 활용해 가독성 높게 입체적으로 묘사한 공간 상세 설명 본문). 존재하지 않거나 정보가 부족한 경우 주거 환경과 편의 조건들을 자세히 풀어서 매끄럽게 창작해 작성해 채워주세요.\n- address: 지도 연동용 실제 주소 (예: 경상북도 구미시 송정동 송정태왕아너스타워, 또는 송정동 76-6 등 상세 주소).\n- isRecommended: 소장 추천 우선 노출 여부 (기본 false, 텍스트에 강한 추천 문구가 있으면 true).",
+                        maxOutputTokens: 8192,
+                        systemInstruction: "매물 원고/정보를 해독해 주어진 JSON 규격에 맞게 파싱하세요. 비어있거나 모호한 값은 빈 문자열(\"\") 또는 기본값으로 처리하세요. 각 필드 매핑 규칙은 다음과 같습니다:\n- transactionType: 거래 형태. 매매, 전세, 월세 중 하나여야 합니다.\n- category: 매물 분류. '원룸', '미투', '투룸', '쓰리룸', '오피스텔', '상가', '아파트', '다세대', '주택', '땅' 등에서 가장 어울리는 것으로 매핑합니다.\n- dong: 구미 시내의 법정동명 (예: 송정동, 형곡동, 임은동 등 '동읍면'으로 끝나는 단어).\n- building: 건물명 및 단지명 (예: 송정태왕아너스타워).\n- room: 호실/호수 정보 (예: 1805호 -> 1805, 503호 -> 503). 숫자만 있거나 생략 가능.\n- floor: 해당층 (예: 20층 -> 20, 2층 -> 2. 숫자만 추출).\n- totalFloor: 건물 전체층/총층 (예: 24층 -> 24. 숫자만 추출).\n- price: 보증금/월세 또는 매매 금액 (예: 500/55, 3000/25, 1억2천 등).\n- manageFee: 관리비 금액 (예: 5, 10). 숫자 혹은 내용.\n- ownerPhone: 임대인(집주인) 연락처 (예: 010-7590-0111).\n- remarks: 비고, 특이사항, 현관번호 등 (예: ▶현관:9246 호실:6000).\n- title: 블로그 홍보 제목 (예: 남향 채광 가득한 햇살 원룸 실사). 존재하지 않거나 비었으면 매물의 장점을 담아 매력적인 제목을 창작해 주세요.\n- intro: 체험적 서론 (방문 시 느낀 채광, 첫인상 등을 상세한 에세이 형식으로 작성한 서론). 존재하지 않거나 빈 경우, 건물명이나 거래조건을 바탕으로 자연스럽게 생성해 채워주세요.\n- body: 상세한 관찰 본론 (수압 체크, 옵션 상태, 내부 관찰 결과 등을 마크다운 헤더를 활용해 가독성 높게 입체적으로 묘사한 공간 상세 설명 본문). 존재하지 않거나 정보가 부족한 경우 주거 환경과 편의 조건들을 자세히 풀어서 매끄럽게 창작해 작성해 채워주세요. 중요: JSON 데이터 응답이 중간에 끊기지 않도록, 제목, 서론, 본문의 전체 분량은 공백 포함 800자 내외로 압축하여 작성하세요.\n- address: 지도 연동용 실제 주소 (예: 경상북도 구미시 송정동 송정태왕아너스타워, 또는 송정동 76-6 등 상세 주소).\n- isRecommended: 소장 추천 우선 노출 여부 (기본 false, 텍스트에 강한 추천 문구가 있으면 true).",
                         responseMimeType: "application/json",
                         responseSchema: parsingSchema
                     }
@@ -158,7 +205,7 @@ async function startServer() {
         }
 
         try {
-            res.json(JSON.parse(text));
+            res.json(cleanAndParseJson(text));
         } catch (parseError) {
             console.error("JSON Parse Error. Data:", text);
             res.status(500).json({ error: "AI가 유효한 JSON 형식을 생성하지 못했습니다. 다시 시도해 주세요." });
@@ -202,7 +249,8 @@ async function startServer() {
                     model: "gemini-3.5-flash",
                     contents: `매물 정보: ${rawText}`,
                     config: {
-                        systemInstruction: "사용자가 제공한 원고나 메모를 바탕으로 가독성이 뛰어나고 마케팅 효과가 강력한 고품격 부동산 홍보용 블로그 원고(제목, 서론, 본문)를 생성하고, 동시에 모든 매물 필드를 JSON 규격에 맞게 완벽히 파싱/추출하여 반환하세요. 비어있는 값은 빈 문자열(\"\") 또는 기본값으로 처리하세요. 각 필드 매핑 규칙은 다음과 같습니다:\n- transactionType: 거래 형태. 매매, 전세, 월세 중 하나여야 합니다.\n- category: 매물 분류. '원룸', '미투', '투룸', '쓰리룸', '오피스텔', '상가', '아파트', '다세대', '주택', '땅', '기타' 중 하나여야 합니다.\n- dong: 구미 시내의 법정동명 (예: 송정동).\n- building: 건물명 (예: 송정태왕아너스타워).\n- room: 호수 숫자 (예: 1805).\n- floor: 해당층 숫자만 (예: 20).\n- totalFloor: 총층 숫자만 (예: 24).\n- price: 보증금/월세 또는 매매가 (예: 500/55, 3000/25, 2억).\n- manageFee: 관리비 금액.\n- ownerPhone: 임대인 연락처 (예: 010-7590-0111).\n- remarks: 현관 비번, 특이사항 등 (예: ▶현관:9246 호실:6000).\n- title: 매물의 매력을 극대화하는 블로그 최적화 홍보 제목을 아름답고 창의적으로 가공하여 작성하세요.\n- intro: 풍부한 첫인상과 기승전결 묘사를 담은 따뜻한 '체험적 서론'을 상세하게 작성하세요.\n- body: '상세한 관찰 본론'으로 수압, 채광, 부엌 구조, 옵션 수준 등을 마크다운 문법(#, ##, ###)을 가미하여 감성적이면서도 분석적으로 입체감 있게 작성하세요. 문장 끝에는 1회 줄바꿈하고 문장간 간격을 충분히 넓혀 가독성을 최대로 높여주세요.\n- address: 실제 지도 연동 주소 (예: 경상북도 구미시 송정동).\n- isRecommended: 특별히 추천할 수준의 매물이면 true, 아니면 false." + (customInstruction ? "\n[소장님 특별 지침]: " + customInstruction : ""),
+                        maxOutputTokens: 8192,
+                        systemInstruction: "사용자가 제공한 원고나 메모를 바탕으로 가독성이 뛰어나고 마케팅 효과가 강력한 고품격 부동산 홍보용 블로그 원고(제목, 서론, 본문)를 생성하고, 동시에 모든 매물 필드를 JSON 규격에 맞게 완벽히 파싱/추출하여 반환하세요. 비어있는 값은 빈 문자열(\"\") 또는 기본값으로 처리하세요. 각 필드 매핑 규칙은 다음과 같습니다:\n- transactionType: 거래 형태. 매매, 전세, 월세 중 하나여야 합니다.\n- category: 매물 분류. '원룸', '미투', '투룸', '쓰리룸', '오피스텔', '상가', '아파트', '다세대', '주택', '땅', '기타' 중 하나여야 합니다.\n- dong: 구미 시내의 법정동명 (예: 송정동).\n- building: 건물명 (예: 송정태왕아너스타워).\n- room: 호수 숫자 (예: 1805).\n- floor: 해당층 숫자만 (예: 20).\n- totalFloor: 총층 숫자만 (예: 24).\n- price: 보증금/월세 또는 매매가 (예: 500/55, 3000/25, 2억).\n- manageFee: 관리비 금액.\n- ownerPhone: 임대인 연락처 (예: 010-7590-0111).\n- remarks: 현관 비번, 특이사항 등 (예: ▶현관:9246 호실:6000).\n- title: 매물의 매력을 극대화하는 블로그 최적화 홍보 제목을 아름답고 창의적으로 가공하여 작성하세요.\n- intro: 풍부한 첫인상과 기승전결 묘사를 담은 따뜻한 '체험적 서론'을 상세하게 작성하세요.\n- body: '상세한 관찰 본론'으로 수압, 채광, 부엌 구조, 옵션 수준 등을 마크다운 문법(#, ##, ###)을 가미하여 감성적이면서도 분석적으로 입체감 있게 작성하세요. 중요: JSON 데이터 응답이 중간에 끊기지 않도록, 제목, 서론, 본문의 전체 분량은 공백 포함 800자 내외로 압축하여 작성하세요. 단락 끝은 1회 줄바꿈 처리합니다.\n- address: 실제 지도 연동 주소 (예: 경상북도 구미시 송정동).\n- isRecommended: 특별히 추천할 수준의 매물이면 true, 아니면 false." + (customInstruction ? "\n[소장님 특별 지침]: " + customInstruction : ""),
                         responseMimeType: "application/json",
                         responseSchema: parsingSchema
                     }
@@ -228,7 +276,7 @@ async function startServer() {
         }
 
         try {
-            res.json(JSON.parse(text));
+            res.json(cleanAndParseJson(text));
         } catch (parseError) {
             console.error("JSON Parse Error. Data:", text);
             res.status(500).json({ error: "AI가 유효한 JSON 형식을 생성하지 못했습니다. 다시 시도해 주세요." });

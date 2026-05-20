@@ -47,6 +47,7 @@ export function Modals({
     const [panoPreviewIndex, setPanoPreviewIndex] = useState(0);
     const [adminTab, setAdminTab] = useState<'inquiry'|'posts'>('inquiry');
     const [isChangingPassword, setIsChangingPassword] = useState(false);
+    const [currentPassInput, setCurrentPassInput] = useState('');
     const [newPassInput, setNewPassInput] = useState('');
 
     const [firebaseUser, setFirebaseUser] = useState(auth.currentUser);
@@ -246,14 +247,23 @@ export function Modals({
 
     const handlePasswordChangeSubmit = (e: React.FormEvent) => {
         e.preventDefault();
+        
+        const currentStoredPassword = localStorage.getItem('taewang_admin_password') || '1234';
+        
+        if (currentPassInput !== currentStoredPassword) {
+            showToast("현재 비밀번호가 일치하지 않습니다.", "error");
+            return;
+        }
+
         if (newPassInput.trim().length !== 6 || isNaN(Number(newPassInput.trim()))) {
-            showToast("비밀번호는 숫자 6자리여야 합니다.", "error");
+            showToast("새 비밀번호는 숫자 6자리여야 합니다.", "error");
             return;
         }
         localStorage.setItem('taewang_admin_password', newPassInput.trim());
         showToast("관리자 비밀번호가 6자리 숫자로 안전하게 변경되었습니다.", "success");
         setIsChangingPassword(false);
         setNewPassInput('');
+        setCurrentPassInput('');
     };
 
     const handleDeletePost = async (id: string) => {
@@ -532,9 +542,8 @@ export function Modals({
             let data;
             try {
                 data = await res.json();
-            } catch (jsonErr) {
-                const text = await res.text();
-                throw new Error(`서버 응답 파싱 실패 (${res.status}): ${text.substring(0, 100) || res.statusText}`);
+            } catch (jsonErr: any) {
+                throw new Error(`서버 응답 파싱 실패 (${res.status})`);
             }
             if (res.ok) {
                 normalizeAndSetData(data);
@@ -562,9 +571,8 @@ export function Modals({
             let data;
             try {
                 data = await res.json();
-            } catch (jsonErr) {
-                const text = await res.text();
-                throw new Error(`서버 응답 파싱 실패 (${res.status}): ${text.substring(0, 100) || res.statusText}`);
+            } catch (jsonErr: any) {
+                throw new Error(`서버 응답 파싱 실패 (${res.status})`);
             }
             if (res.ok) {
                 normalizeAndSetData(data);
@@ -1331,20 +1339,28 @@ export function Modals({
                         <form onSubmit={handlePasswordChangeSubmit} className="space-y-3 sm:space-y-4">
                             <div>
                                 <input 
+                                    type="password" 
+                                    value={currentPassInput} 
+                                    onChange={e => setCurrentPassInput(e.target.value)} 
+                                    required 
+                                    placeholder="현재 비밀번호 입력" 
+                                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 sm:px-4 py-2.5 sm:py-3 text-xs sm:text-sm focus:outline-none focus:border-emerald-500 transition-all font-medium text-center tracking-widest font-mono text-lg mb-3"
+                                />
+                                <input 
                                     type="text" 
                                     pattern="\d*"
                                     maxLength={6}
                                     value={newPassInput} 
                                     onChange={e => setNewPassInput(e.target.value.replace(/[^0-9]/g, ''))} 
                                     required 
-                                    placeholder="숫자 6자리 입력" 
+                                    placeholder="새 숫자 6자리 입력" 
                                     className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 sm:px-4 py-2.5 sm:py-3 text-xs sm:text-sm focus:outline-none focus:border-emerald-500 transition-all font-medium text-center tracking-widest font-mono text-lg"
                                 />
                             </div>
                             <div className="flex space-x-2 w-full">
                                 <button 
                                     type="button" 
-                                    onClick={() => { setIsChangingPassword(false); setNewPassInput(''); }} 
+                                    onClick={() => { setIsChangingPassword(false); setNewPassInput(''); setCurrentPassInput(''); }} 
                                     className="w-1/2 bg-slate-100 hover:bg-slate-200 text-slate-600 py-2.5 sm:py-3 rounded-xl text-xs sm:text-sm font-semibold transition-all"
                                 >
                                     취소
