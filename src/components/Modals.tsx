@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useAppStore } from '../store';
-import { Post } from '../data';
+import { Post, gumiDongs } from '../data';
 import PannellumViewer from './PannellumViewer';
 import { GoogleAuthProvider, signInWithPopup, signOut } from 'firebase/auth';
 import { auth } from '../firebase';
@@ -453,6 +453,72 @@ export function Modals({
         }
     };
 
+    const normalizeAndSetData = (data: any) => {
+        if (!data || typeof data !== 'object') return;
+        
+        const cleanData: Partial<Post> = {};
+        
+        const safeStr = (val: any): string => {
+            if (val === undefined || val === null) return '';
+            return String(val).trim();
+        };
+
+        // 1. Normalize transactionType (월세, 전세, 매매)
+        const rawTx = safeStr(data.transactionType);
+        if (rawTx.includes('매매')) cleanData.transactionType = '매매';
+        else if (rawTx.includes('전세')) cleanData.transactionType = '전세';
+        else if (rawTx.includes('월세') || !rawTx) cleanData.transactionType = '월세';
+        else cleanData.transactionType = '월세';
+        
+        // 2. Normalize category
+        const rawCat = safeStr(data.category);
+        const validCategories = ["원룸매매", "원룸", "미투", "투룸", "쓰리룸", "상가", "아파트", "오피스텔", "다세대", "주택", "땅", "기타"];
+        const found = validCategories.find(c => rawCat.includes(c) || c.includes(rawCat));
+        cleanData.category = found || '원룸';
+        
+        // 3. Normalize dong to match Gumi districts
+        const rawDong = safeStr(data.dong).replace(/\s+/g, '');
+        if (rawDong) {
+            const foundDong = gumiDongs.find(gd => rawDong.includes(gd) || gd.includes(rawDong));
+            if (foundDong) {
+                cleanData.dong = foundDong;
+            } else {
+                const partial = gumiDongs.find(gd => {
+                    const gdClean = gd.replace(/[동읍면]/g, '');
+                    const dClean = rawDong.replace(/[동읍면]/g, '');
+                    return dClean.includes(gdClean) || gdClean.includes(dClean);
+                });
+                cleanData.dong = partial || '송정동';
+            }
+        } else {
+            cleanData.dong = '송정동';
+        }
+        
+        // 4. Normalize floor and totalFloor (convert "20층" -> "20" etc.)
+        cleanData.floor = safeStr(data.floor).replace(/층/g, '');
+        cleanData.totalFloor = safeStr(data.totalFloor).replace(/층/g, '');
+        
+        // 5. Clean up string spacing
+        cleanData.building = safeStr(data.building);
+        cleanData.room = safeStr(data.room);
+        cleanData.price = safeStr(data.price);
+        cleanData.manageFee = safeStr(data.manageFee);
+        cleanData.ownerPhone = safeStr(data.ownerPhone);
+        cleanData.title = safeStr(data.title);
+        cleanData.remarks = safeStr(data.remarks);
+        cleanData.intro = safeStr(data.intro);
+        cleanData.body = safeStr(data.body);
+        cleanData.address = safeStr(data.address);
+        cleanData.video = safeStr(data.video);
+        
+        if (data.isRecommended !== undefined) {
+            cleanData.isRecommended = data.isRecommended === true || String(data.isRecommended) === 'true';
+        }
+        
+        setFormData(prev => ({ ...prev, ...cleanData }));
+        setTimeout(syncHeights, 100);
+    };
+
     const parseWithAI = async () => {
         if (!rawDraft) return showToast("원고를 입력해 주세요.", "error");
         setIsParsing(true);
@@ -463,15 +529,22 @@ export function Modals({
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ rawText: rawDraft })
             });
-            const data = await res.json();
+            let data;
+            try {
+                data = await res.json();
+            } catch (jsonErr) {
+                const text = await res.text();
+                throw new Error(`서버 응답 파싱 실패 (${res.status}): ${text.substring(0, 100) || res.statusText}`);
+            }
             if (res.ok) {
-                setFormData(prev => ({ ...prev, ...data }));
+                normalizeAndSetData(data);
                 showToast("✨ AI 해독 완료!", "success");
             } else {
                 showToast(data.error || "AI 파싱 실패", "error");
             }
-        } catch (e) {
-            showToast("AI 호출 실패", "error");
+        } catch (e: any) {
+            console.error("AI 호출 에러:", e);
+            showToast(`AI 호출 실패: ${e.message || "서버 통신 오류"}`, "error");
         }
         setIsParsing(false);
     };
@@ -486,15 +559,22 @@ export function Modals({
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ rawText: rawDraft, customInstruction })
             });
-            const data = await res.json();
+            let data;
+            try {
+                data = await res.json();
+            } catch (jsonErr) {
+                const text = await res.text();
+                throw new Error(`서버 응답 파싱 실패 (${res.status}): ${text.substring(0, 100) || res.statusText}`);
+            }
             if (res.ok) {
-                setFormData(prev => ({ ...prev, ...data }));
+                normalizeAndSetData(data);
                 showToast("✨ AI 추천 매물 홍보 원고 작성 완료!", "success");
             } else {
                 showToast(data.error || "AI 자동 생성 실패", "error");
             }
-        } catch (e) {
-            showToast("AI 호출 실패", "error");
+        } catch (e: any) {
+            console.error("AI 호출 에러:", e);
+            showToast(`AI 호출 실패: ${e.message || "서버 통신 오류"}`, "error");
         }
         setIsGenerating(false);
     };
@@ -927,7 +1007,9 @@ export function Modals({
                                 <div>
                                     <label className="block text-[10px] sm:text-xs font-bold text-slate-500 uppercase mb-1">소재지 동</label>
                                     <select id="post-dong" value={formData.dong} onChange={handleFormChange} required className="w-full bg-slate-50 border border-slate-200 rounded-lg sm:rounded-xl px-3 py-2 sm:py-2.5 text-xs sm:text-sm focus:outline-none focus:border-emerald-500 transition-all">
-                                        <option value="원평동">원평동</option><option value="형곡동">형곡동</option><option value="송정동">송정동</option><option value="신평동">신평동</option><option value="비산동">비산동</option><option value="도량동">도량동</option><option value="봉곡동">봉곡동</option><option value="사곡동">사곡동</option><option value="상모동">상모동</option><option value="임은동">임은동</option><option value="진평동">진평동</option><option value="황상동">황상동</option><option value="인의동">인의동</option><option value="옥계동">옥계동</option><option value="공단동">공단동</option><option value="광평동">광평동</option><option value="지산동">지산동</option><option value="양포동">양포동</option>
+                                        {gumiDongs.map(d => (
+                                             <option key={d} value={d}>{d}</option>
+                                         ))}
                                     </select>
                                 </div>
                                 <div>
