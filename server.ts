@@ -1,13 +1,75 @@
 import express from 'express';
 import path from 'path';
+import fs from 'fs';
 import { createServer as createViteServer } from 'vite';
 import { GoogleGenAI, Type } from '@google/genai';
 import dotenv from 'dotenv';
+import { defaultPosts } from './src/data';
 dotenv.config();
 
 async function startServer() {
   const app = express();
   const PORT = 3000;
+
+  const DATA_DIR = path.join(process.cwd(), 'data');
+  const POSTS_FILE = path.join(DATA_DIR, 'posts.json');
+  const INQUIRIES_FILE = path.join(DATA_DIR, 'inquiries.json');
+
+  // Ensure data directory exists
+  if (!fs.existsSync(DATA_DIR)) {
+    fs.mkdirSync(DATA_DIR, { recursive: true });
+  }
+
+  // Ensure posts.json exists with default posts
+  if (!fs.existsSync(POSTS_FILE)) {
+    fs.writeFileSync(POSTS_FILE, JSON.stringify(defaultPosts, null, 2), 'utf-8');
+  }
+
+  // Ensure inquiries.json exists
+  if (!fs.existsSync(INQUIRIES_FILE)) {
+    fs.writeFileSync(INQUIRIES_FILE, JSON.stringify([], null, 2), 'utf-8');
+  }
+
+  // Helper functions for reading/writing
+  function readPosts() {
+    try {
+      if (fs.existsSync(POSTS_FILE)) {
+        const data = fs.readFileSync(POSTS_FILE, 'utf-8');
+        return JSON.parse(data);
+      }
+    } catch (err) {
+      console.error("Error reading posts:", err);
+    }
+    return defaultPosts;
+  }
+
+  function writePosts(posts: any) {
+    try {
+      fs.writeFileSync(POSTS_FILE, JSON.stringify(posts, null, 2), 'utf-8');
+    } catch (err) {
+      console.error("Error writing posts:", err);
+    }
+  }
+
+  function readInquiries() {
+    try {
+      if (fs.existsSync(INQUIRIES_FILE)) {
+        const data = fs.readFileSync(INQUIRIES_FILE, 'utf-8');
+        return JSON.parse(data);
+      }
+    } catch (err) {
+      console.error("Error reading inquiries:", err);
+    }
+    return [];
+  }
+
+  function writeInquiries(inqs: any) {
+    try {
+      fs.writeFileSync(INQUIRIES_FILE, JSON.stringify(inqs, null, 2), 'utf-8');
+    } catch (err) {
+      console.error("Error writing inquiries:", err);
+    }
+  }
   
   app.use(express.json({ limit: '50mb' }));
 
@@ -181,7 +243,102 @@ async function startServer() {
     }
   });
 
+  // DB REST API Endpoints
+  app.get('/api/posts', (req, res) => {
+    res.json(readPosts());
+  });
+
+  app.post('/api/posts', (req, res) => {
+    const postData = req.body;
+    let posts = readPosts();
+    
+    const existingIndex = posts.findIndex((p: any) => p.id === postData.id);
+    if (existingIndex !== -1) {
+      posts[existingIndex] = { ...posts[existingIndex], ...postData };
+    } else {
+      posts = [postData, ...posts];
+    }
+    
+    writePosts(posts);
+    res.json(posts);
+  });
+
+  app.delete('/api/posts/:id', (req, res) => {
+    const { id } = req.params;
+    let posts = readPosts();
+    posts = posts.filter((p: any) => p.id !== id);
+    writePosts(posts);
+    res.json(posts);
+  });
+
+  app.get('/api/inquiries', (req, res) => {
+    res.json(readInquiries());
+  });
+
+  app.post('/api/inquiries', (req, res) => {
+    const inqData = req.body;
+    let inquiries = readInquiries();
+    inquiries = [inqData, ...inquiries];
+    writeInquiries(inquiries);
+    res.json(inquiries);
+  });
+
+  app.post('/api/inquiries/:id/toggle', (req, res) => {
+    const { id } = req.params;
+    let inquiries = readInquiries();
+    inquiries = inquiries.map((inq: any) => {
+      if (inq.id === id) {
+        return { ...inq, processed: !inq.processed };
+      }
+      return inq;
+    });
+    writeInquiries(inquiries);
+    res.json(inquiries);
+  });
+
   // API 404 Fallback
+  // 2FA in-memory storage for admin authentication
+  const verificationCodes = new Map<string, { code: string; expiresAt: number }>();
+
+  app.post('/api/v2fa/send', (req, res) => {
+    const { phone } = req.body;
+    const code = Math.floor(100000 + Math.random() * 900000).toString();
+    const expiresAt = Date.now() + 5 * 60 * 1000; // 5 mins limit
+    
+    verificationCodes.set('admin', { code, expiresAt });
+    console.log(`[2FA SMS LOG] SMS verification code sent to admin phone: ${phone}, code: ${code}`);
+    
+    res.json({
+      success: true,
+      message: "인증번호가 문자(SMS)로 발송되었습니다.",
+      code: code // Passed to front-end to simulate a real SMS notification toast
+    });
+  });
+
+  app.post('/api/v2fa/verify', (req, res) => {
+    const { code } = req.body;
+    const stored = verificationCodes.get('admin');
+    
+    if (!stored) {
+      res.status(400).json({ error: "활성화된 인증 세션이 없습니다. 인증번호를 재발송해 주세요." });
+      return;
+    }
+    
+    if (Date.now() > stored.expiresAt) {
+      verificationCodes.delete('admin');
+      res.status(400).json({ error: "인증 유효 시간(5분)이 경과했습니다. 다시 시도해 주세요." });
+      return;
+    }
+    
+    if (stored.code !== code.trim()) {
+      res.status(400).json({ error: "인증번호 6자리가 정확하지 않습니다." });
+      return;
+    }
+    
+    verificationCodes.delete('admin');
+    res.json({ success: true, message: "2차 모바일 인증이 최종 완료되었습니다." });
+  });
+
   app.all('/api/*', (req, res) => {
     console.warn(`[404 NOT FOUND] API Route not caught: ${req.method} ${req.url}`);
     res.status(404).json({ error: `API 경로를 찾을 수 없습니다: ${req.url}` });

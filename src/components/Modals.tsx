@@ -37,31 +37,152 @@ export function Modals({
     const [adminAuthPw, setAdminAuthPw] = useState('');
     const [panoPreviewIndex, setPanoPreviewIndex] = useState(0);
     const [adminTab, setAdminTab] = useState<'inquiry'|'posts'>('inquiry');
+    const [isChangingPassword, setIsChangingPassword] = useState(false);
+    const [newPassInput, setNewPassInput] = useState('');
 
-    const handleAdminLogin = (e: React.FormEvent) => {
+    // --- State & Handlers for Admin 2-Factor Authentication ---
+    const [loginStep, setLoginStep] = useState<'password' | 'sms'>('password');
+    const [smsInputCode, setSmsInputCode] = useState('');
+    const [isSmsSending, setIsSmsSending] = useState(false);
+    const [isSmsVerifying, setIsSmsVerifying] = useState(false);
+    const [smsSent, setSmsSent] = useState(false);
+    const [smsTimer, setSmsTimer] = useState(0);
+    const [showSmsPush, setShowSmsPush] = useState(false);
+    const [receivedSmsCode, setReceivedSmsCode] = useState('');
+
+    React.useEffect(() => {
+        if (smsTimer <= 0) return;
+        const interval = setInterval(() => {
+            setSmsTimer((prev) => prev - 1);
+        }, 1000);
+        return () => clearInterval(interval);
+    }, [smsTimer]);
+
+    const handleSendVerificationCode = async () => {
+        setIsSmsSending(true);
+        try {
+            const res = await fetch('/api/v2fa/send', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ phone: '010-7590-0111' })
+            });
+            const data = await res.json();
+            if (data.success) {
+                setSmsSent(true);
+                setSmsTimer(300); // 5 minutes
+                setReceivedSmsCode(data.code);
+                setShowSmsPush(true);
+                showToast("등록된 통합 관리자 모바일(010-7590-0111)로 2차 보안 토큰을 발송했습니다.", "success");
+                
+                // Keep simulation push visible for 15s
+                setTimeout(() => {
+                    setShowSmsPush(false);
+                }, 15000);
+            } else {
+                showToast(data.error || "인증번호 발송에 실패했습니다.", "error");
+            }
+        } catch (err) {
+            console.error(err);
+            showToast("보안 문자 전송 실패 (서버 연결을 확인하세요)", "error");
+        } finally {
+            setIsSmsSending(false);
+        }
+    };
+
+    const handleAdminLogin = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (adminAuthPw === '1234') {
-            setAdminLoginOpen(false);
-            setAdminAuthPw('');
-            setIsAdminLoggedIn(true);
-            showToast("태왕 관리자 보안 모드가 정상 활성화되었습니다. 이제 소유자 연락처 열람이 가능합니다.", "success");
+        
+        if (loginStep === 'password') {
+            const currentPassword = localStorage.getItem('taewang_admin_password') || '1234';
+            if (adminAuthPw === currentPassword) {
+                // Correct password! Advance to 2nd factor verification
+                setLoginStep('sms');
+                setAdminAuthPw('');
+                await handleSendVerificationCode();
+            } else {
+                showToast("비밀번호가 올바르지 않습니다.", "error");
+            }
         } else {
-            showToast("비밀번호가 올바르지 않습니다.", "error");
+            // SMS verification step
+            if (smsInputCode.trim().length !== 6) {
+                showToast("6자리 인증번호를 온전히 입력하세요.", "error");
+                return;
+            }
+            
+            setIsSmsVerifying(true);
+            try {
+                const res = await fetch('/api/v2fa/verify', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ code: smsInputCode })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    setAdminLoginOpen(false);
+                    setIsAdminLoggedIn(true);
+                    setLoginStep('password');
+                    setSmsInputCode('');
+                    setShowSmsPush(false);
+                    showToast("2차 모바일 SMS 본인확인이 통합 통과되어 관리자 권한이 완벽하게 승인되었습니다.", "success");
+                } else {
+                    showToast(data.error || "인증번호가 정확하지 않습니다.", "error");
+                }
+            } catch (err) {
+                console.error(err);
+                showToast("인증 서버 통신 오류", "error");
+            } finally {
+                setIsSmsVerifying(false);
+            }
         }
     };
 
-    const handleDeletePost = (id: string) => {
+    const handleCloseLoginModal = () => {
+        setAdminLoginOpen(false);
+        setLoginStep('password');
+        setAdminAuthPw('');
+        setSmsInputCode('');
+        setShowSmsPush(false);
+    };
+
+    const handlePasswordChangeSubmit = (e: React.FormEvent) => {
+        e.preventDefault();
+        if (newPassInput.trim().length !== 6 || isNaN(Number(newPassInput.trim()))) {
+            showToast("비밀번호는 숫자 6자리여야 합니다.", "error");
+            return;
+        }
+        localStorage.setItem('taewang_admin_password', newPassInput.trim());
+        showToast("관리자 비밀번호가 6자리 숫자로 안전하게 변경되었습니다.", "success");
+        setIsChangingPassword(false);
+        setNewPassInput('');
+    };
+
+    const handleDeletePost = async (id: string) => {
         if(confirm('정말 삭제하시겠습니까?')) {
-            setPosts(posts.filter(p => p.id !== id));
-            showToast("삭제 완료", "success");
+            try {
+                const res = await fetch(`/api/posts/${id}`, { method: 'DELETE' });
+                const updated = await res.json();
+                if (Array.isArray(updated)) {
+                    setPosts(updated);
+                    showToast("삭제 완료", "success");
+                }
+            } catch (err) {
+                console.error(err);
+                showToast("삭제 과정 전송에 실패했습니다.", "error");
+            }
         }
     };
 
-    const toggleInquiryProcessed = (id: string) => {
-        setInquiries(inquiries.map(inq => {
-            if (inq.id === id) return { ...inq, processed: !inq.processed };
-            return inq;
-        }));
+    const toggleInquiryProcessed = async (id: string) => {
+        try {
+            const res = await fetch(`/api/inquiries/${id}/toggle`, { method: 'POST' });
+            const updated = await res.json();
+            if (Array.isArray(updated)) {
+                setInquiries(updated);
+            }
+        } catch (err) {
+            console.error(err);
+            showToast("의뢰 상태 변경 전송에 실패했습니다.", "error");
+        }
     };
 
     const currentEditPost = editingPostId ? posts.find(p => p.id === editingPostId) : null;
@@ -278,7 +399,7 @@ export function Modals({
         setIsGenerating(false);
     };
 
-    const handlePostSubmit = (e: React.FormEvent) => {
+    const handlePostSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         const defaultImg = "https://images.unsplash.com/photo-1564013799919-ab600027ffc6?auto=format&fit=crop&w=1200&h=675&q=80";
         const newPost: Post = {
@@ -308,12 +429,20 @@ export function Modals({
             isRecommended: formData.isRecommended || false
         };
 
-        if (editingPostId) {
-            setPosts(posts.map(p => p.id === editingPostId ? newPost : p));
-            showToast("수정 저장 완료!", "success");
-        } else {
-            setPosts([newPost, ...posts]);
-            showToast("매물 등록 완료!", "success");
+        try {
+            const res = await fetch('/api/posts', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(newPost)
+            });
+            const updated = await res.json();
+            if (Array.isArray(updated)) {
+                setPosts(updated);
+                showToast(editingPostId ? "수정 저장 완료!" : "매물 등록 완료!", "success");
+            }
+        } catch (err) {
+            console.error(err);
+            showToast("서버에 매물을 등록하지 못했습니다.", "error");
         }
         setWriteModalOpen(false);
         setEditingPostId(null);
@@ -365,38 +494,145 @@ export function Modals({
             {/* Admin Login Modal */}
             {adminLoginOpen && (
                 <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 w-full">
-                    <div className="bg-white rounded-2xl sm:rounded-3xl w-full max-w-sm overflow-hidden shadow-2xl transition-transform p-5 sm:p-6">
-                        <h3 className="text-base sm:text-lg font-black text-slate-900 mb-2 flex items-center space-x-2">
-                            <span className="text-emerald-600"><i className="fa-solid fa-shield-halved"></i></span>
-                            <span>관리자 로그인</span>
-                        </h3>
-                        <p className="text-slate-400 text-[10px] sm:text-xs mb-4 sm:mb-6">대시보드 진입을 위해 초기 비밀번호를 입력해 주세요.</p>
-                        <form onSubmit={handleAdminLogin} className="space-y-3 sm:space-y-4">
-                            <div>
-                                <input type="password" value={adminAuthPw} onChange={e => setAdminAuthPw(e.target.value)} required placeholder="비밀번호 입력 (초기: 1234)" className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 sm:px-4 py-2.5 sm:py-3 text-xs sm:text-sm focus:outline-none focus:border-emerald-500 transition-all font-medium"/>
-                            </div>
-                            <div className="flex space-x-2 w-full">
-                                <button type="button" onClick={() => setAdminLoginOpen(false)} className="w-1/2 bg-slate-100 hover:bg-slate-200 text-slate-600 py-2.5 sm:py-3 rounded-xl text-xs sm:text-sm font-semibold transition-all">닫기</button>
-                                <button type="submit" className="w-1/2 bg-emerald-600 hover:bg-emerald-700 text-white py-2.5 sm:py-3 rounded-xl text-xs sm:text-sm font-bold shadow-md transition-all">인증 및 진입</button>
-                            </div>
-                        </form>
+                    <div className="bg-white rounded-2xl sm:rounded-3xl w-full max-w-sm overflow-hidden shadow-2xl transition-all duration-300 p-5 sm:p-6 border border-slate-100">
+                        {loginStep === 'password' ? (
+                            <>
+                                <h3 className="text-base sm:text-lg font-black text-slate-900 mb-2 flex items-center space-x-2">
+                                    <span className="text-emerald-600"><i className="fa-solid fa-shield-halved"></i></span>
+                                    <span>관리자 로그인 (1차 암호)</span>
+                                </h3>
+                                <p className="text-slate-500 text-[10.5px] sm:text-xs mb-4 sm:mb-6 leading-relaxed">대시보드 진입을 위해 승인받은 통합 관리자 암호를 입력해 주세요.</p>
+                                <form onSubmit={handleAdminLogin} className="space-y-3 sm:space-y-4">
+                                    <div>
+                                        <input 
+                                            type="password" 
+                                            value={adminAuthPw} 
+                                            onChange={e => setAdminAuthPw(e.target.value)} 
+                                            required 
+                                            placeholder="비밀번호 입력" 
+                                            className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 sm:px-4 py-2.5 sm:py-3 text-xs sm:text-sm focus:outline-none focus:border-emerald-500 transition-all font-medium"
+                                        />
+                                    </div>
+                                    <div className="flex justify-between items-center px-1">
+                                        <span className="text-[10px] text-slate-400 font-medium font-sans">비밀번호를 변경하시겠습니까?</span>
+                                        <button
+                                            type="button"
+                                            onClick={() => setIsChangingPassword(true)}
+                                            className="text-[10px] sm:text-xs text-emerald-600 hover:text-emerald-700 font-extrabold flex items-center gap-1 transition-all underline shrink-0"
+                                        >
+                                            <i className="fa-solid fa-key text-[9px]"></i>
+                                            <span>비밀번호 수정</span>
+                                        </button>
+                                    </div>
+                                    <div className="flex space-x-2 w-full pt-1">
+                                        <button type="button" onClick={handleCloseLoginModal} className="w-1/2 bg-slate-100 hover:bg-slate-200 text-slate-600 py-2.5 sm:py-3 rounded-xl text-xs sm:text-sm font-semibold transition-all">닫기</button>
+                                        <button type="submit" className="w-1/2 bg-emerald-600 hover:bg-emerald-700 text-white py-2.5 sm:py-3 rounded-xl text-xs sm:text-sm font-bold shadow-md transition-all">인증 및 진입</button>
+                                    </div>
+                                </form>
+                            </>
+                        ) : (
+                            <>
+                                <h3 className="text-base sm:text-lg font-black text-slate-900 mb-1 flex items-center space-x-2">
+                                    <span className="text-emerald-600 animate-pulse"><i className="fa-solid fa-mobile-screen-button"></i></span>
+                                    <span>휴대폰 2차 인증 (SMS)</span>
+                                </h3>
+                                <div className="bg-emerald-50 border border-emerald-100/70 rounded-xl p-3 mb-4 text-[11px] text-emerald-800 leading-relaxed font-semibold">
+                                    안전한 중개 관리를 위해 보안 정책에 따라 <span className="underline text-emerald-900">본인 명의 모바일</span> 확인을 실행합니다.
+                                </div>
+                                <p className="text-slate-500 text-[10.5px] sm:text-xs mb-4 leading-relaxed">
+                                    통합 권한 핸드폰 <span className="font-bold text-slate-800">010-****-0111</span> 번호로 발송된 6자리 보안코드를 입력해 주세요.
+                                </p>
+                                <form onSubmit={handleAdminLogin} className="space-y-4">
+                                    <div className="relative">
+                                        <input 
+                                            type="text" 
+                                            pattern="\d*"
+                                            maxLength={6}
+                                            value={smsInputCode} 
+                                            onChange={e => setSmsInputCode(e.target.value.replace(/[^0-9]/g, ''))} 
+                                            required 
+                                            placeholder="인증번호 6자리" 
+                                            className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-base sm:text-lg focus:outline-none focus:border-emerald-500 transition-all font-bold text-center tracking-widest font-mono text-slate-800"
+                                            autoFocus
+                                        />
+                                        {smsTimer > 0 ? (
+                                            <div className="absolute right-3.5 top-1/2 -translate-y-1/2 flex items-center gap-1.5 pointer-events-none">
+                                                <i className="fa-solid fa-clock-rotate-left text-[10px] animate-spin text-red-500"></i>
+                                                <span className="font-mono text-xs font-bold text-red-500">
+                                                    {Math.floor(smsTimer / 60)}:{(smsTimer % 60).toString().padStart(2, '0')}
+                                                </span>
+                                            </div>
+                                        ) : (
+                                            <span className="absolute right-3.5 top-1/2 -translate-y-1/2 font-sans text-xs font-bold text-rose-500">만료됨</span>
+                                        )}
+                                    </div>
+                                    <div className="flex justify-between items-center px-1 text-[11px]">
+                                        <span className="text-slate-400 font-medium font-sans">인증번호가 도착하지 않으셨나요?</span>
+                                        <button
+                                            type="button"
+                                            onClick={handleSendVerificationCode}
+                                            disabled={isSmsSending}
+                                            className="text-emerald-600 hover:text-emerald-700 font-extrabold flex items-center gap-1 transition-all underline disabled:text-slate-400"
+                                        >
+                                            <i className="fa-solid fa-arrow-rotate-right text-[10px]"></i>
+                                            <span>{isSmsSending ? "발송 중..." : "인증번호 재전송"}</span>
+                                        </button>
+                                    </div>
+                                    <div className="flex space-x-2 w-full pt-1">
+                                        <button 
+                                            type="button" 
+                                            onClick={() => setLoginStep('password')} 
+                                            className="w-1/3 bg-slate-100 hover:bg-slate-200 text-slate-600 py-2.5 sm:py-3 rounded-xl text-xs sm:text-sm font-semibold transition-all"
+                                        >
+                                            이전으로
+                                        </button>
+                                        <button 
+                                            type="submit" 
+                                            disabled={isSmsVerifying}
+                                            className="w-2/3 bg-emerald-600 hover:bg-emerald-700 text-white py-2.5 sm:py-3 rounded-xl text-xs sm:text-sm font-bold shadow-md transition-all flex items-center justify-center gap-1.5 disabled:bg-emerald-400"
+                                        >
+                                            {isSmsVerifying ? (
+                                                <>
+                                                    <i className="fa-solid fa-spinner animate-spin"></i>
+                                                    <span>확인 중...</span>
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <i className="fa-solid fa-circle-check"></i>
+                                                    <span>2차 인증 완료</span>
+                                                </>
+                                            )}
+                                        </button>
+                                    </div>
+                                </form>
+                            </>
+                        )}
                     </div>
                 </div>
             )}
 
-            {/* Admin Dashboard Modal */}
-            {adminDashboardOpen && (
-                <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-0 sm:p-4 overflow-hidden w-full">
-                    <div className="bg-slate-50 rounded-none sm:rounded-3xl w-full h-full sm:h-auto sm:max-w-4xl lg:max-w-7xl sm:max-h-[92vh] overflow-hidden shadow-2xl transition-all flex flex-col">
-                        <div className="sticky top-0 bg-white border-b border-slate-100 px-4 sm:px-6 py-4 sm:py-5 flex justify-between items-center z-10 w-full shrink-0">
-                            <h3 className="text-base sm:text-lg font-black text-slate-900 flex items-center space-x-2">
-                                <span className="text-emerald-600"><i className="fa-solid fa-chart-line"></i></span>
-                                <span>중개 종합 관리자 센터</span>
-                            </h3>
+        {/* Admin Dashboard Modal */}
+        {adminDashboardOpen && (
+            <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-0 sm:p-4 overflow-hidden w-full">
+                <div className="bg-slate-50 rounded-none sm:rounded-3xl w-full h-full sm:h-auto sm:max-w-4xl lg:max-w-7xl sm:max-h-[92vh] overflow-hidden shadow-2xl transition-all flex flex-col">
+                    <div className="sticky top-0 bg-white border-b border-slate-100 px-4 sm:px-6 py-4 sm:py-5 flex justify-between items-center z-10 w-full shrink-0">
+                        <h3 className="text-base sm:text-lg font-black text-slate-900 flex items-center space-x-2">
+                            <span className="text-emerald-600"><i className="fa-solid fa-chart-line"></i></span>
+                            <span>중개 종합 관리자 센터</span>
+                        </h3>
+                        <div className="flex items-center space-x-3">
+                            <button 
+                                onClick={() => setIsChangingPassword(true)}
+                                className="inline-flex items-center gap-1.5 text-xs font-bold text-emerald-600 hover:text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-100 px-3 py-1.5 rounded-xl transition-all"
+                            >
+                                <i className="fa-solid fa-key"></i>
+                                <span>비밀번호 수정</span>
+                            </button>
                             <button onClick={() => setAdminDashboardOpen(false)} className="text-slate-400 hover:text-slate-600 transition-colors px-2">
                                 <i className="fa-solid fa-xmark text-lg sm:text-xl"></i>
                             </button>
                         </div>
+                    </div>
                         <div className="flex-grow overflow-y-auto p-4 sm:p-6 lg:p-8 space-y-6 sm:space-y-8">
                             <div className="flex border-b border-slate-200 w-full overflow-x-auto scrollbar-hide shrink-0">
                                 <button onClick={() => setAdminTab('inquiry')} className={`py-2.5 sm:py-3 px-4 sm:px-6 text-xs sm:text-sm font-bold transition-all whitespace-nowrap ${adminTab === 'inquiry' ? 'text-emerald-600 border-b-2 border-emerald-600' : 'text-slate-400 hover:text-slate-600'}`}>상담/중개 의뢰 목록</button>
@@ -854,6 +1090,87 @@ export function Modals({
                                 <button type="submit" className="w-full sm:w-auto bg-emerald-600 hover:bg-emerald-700 text-white px-6 py-2.5 rounded-xl text-xs sm:text-sm font-bold shadow-md shadow-emerald-600/10 transition-all">매물 등록 및 발행</button>
                             </div>
                         </form>
+                    </div>
+                </div>
+            )}
+
+            {/* Password Change Submodal */}
+            {isChangingPassword && (
+                <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4 w-full animate-fadeIn">
+                    <div className="bg-white rounded-2xl sm:rounded-3xl w-full max-w-sm overflow-hidden shadow-2xl p-5 sm:p-6 border border-slate-100">
+                        <h3 className="text-base sm:text-lg font-black text-slate-900 mb-2 flex items-center space-x-2">
+                             <span className="text-emerald-600"><i className="fa-solid fa-key"></i></span>
+                            <span>관리자 비밀번호 수정</span>
+                        </h3>
+                        <p className="text-slate-500 text-[10px] sm:text-xs mb-4 sm:mb-6 leading-relaxed">
+                            보안을 장려하기 위해 타인이 유추하기 어려운 단독 비밀번호(숫자 6자리)로 즉시 변경합니다.
+                        </p>
+                        <form onSubmit={handlePasswordChangeSubmit} className="space-y-3 sm:space-y-4">
+                            <div>
+                                <input 
+                                    type="text" 
+                                    pattern="\d*"
+                                    maxLength={6}
+                                    value={newPassInput} 
+                                    onChange={e => setNewPassInput(e.target.value.replace(/[^0-9]/g, ''))} 
+                                    required 
+                                    placeholder="숫자 6자리 입력" 
+                                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 sm:px-4 py-2.5 sm:py-3 text-xs sm:text-sm focus:outline-none focus:border-emerald-500 transition-all font-medium text-center tracking-widest font-mono text-lg"
+                                />
+                            </div>
+                            <div className="flex space-x-2 w-full">
+                                <button 
+                                    type="button" 
+                                    onClick={() => { setIsChangingPassword(false); setNewPassInput(''); }} 
+                                    className="w-1/2 bg-slate-100 hover:bg-slate-200 text-slate-600 py-2.5 sm:py-3 rounded-xl text-xs sm:text-sm font-semibold transition-all"
+                                >
+                                    취소
+                                </button>
+                                <button 
+                                    type="submit" 
+                                    className="w-1/2 bg-emerald-600 hover:bg-emerald-700 text-white py-2.5 sm:py-3 rounded-xl text-xs sm:text-sm font-bold shadow-md transition-all"
+                                >
+                                    암호 변경하기
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            )}
+
+            {/* Simulated SMS Push Notification Banner */}
+            {showSmsPush && receivedSmsCode && (
+                <div className="fixed top-4 left-1/2 -translate-x-1/2 z-[99999] w-[92%] max-w-sm bg-slate-900/95 backdrop-blur-md text-white p-4 rounded-2xl shadow-2xl border border-white/10 flex gap-3 animate-slideDown shadow-emerald-950/20">
+                    <div className="bg-emerald-500/20 text-emerald-400 w-9 h-9 rounded-xl flex items-center justify-center shrink-0">
+                        <i className="fa-solid fa-comment-sms text-[15px]"></i>
+                    </div>
+                    <div className="flex-grow space-y-1 text-left">
+                        <div className="flex justify-between items-center">
+                            <span className="text-[10px] font-black text-slate-400 tracking-wider">SMS 수신 알림</span>
+                            <span className="text-[9px] text-slate-500 font-medium">방금 전</span>
+                        </div>
+                        <p className="text-[11px] sm:text-xs font-semibold leading-relaxed text-slate-100">
+                            [태왕부동산] 2차 보안인증번호는 <span className="font-mono text-amber-300 font-extrabold text-xs sm:text-[13px] bg-slate-800 px-1.5 py-0.5 rounded border border-slate-700 select-all">{receivedSmsCode}</span> 입니다. (유출금지)
+                        </p>
+                        <div className="pt-2 flex items-center gap-1.5">
+                            <button
+                                onClick={() => {
+                                    setSmsInputCode(receivedSmsCode);
+                                    setShowSmsPush(false);
+                                    showToast("인증코드가 성공적으로 자동완성 되었습니다.", "success");
+                                }}
+                                className="bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-[10px] px-2.5 py-1 rounded-md transition-all shadow-sm flex items-center gap-1 scale-100 hover:scale-[1.02]"
+                            >
+                                <i className="fa-solid fa-bolt text-[8px] animate-bounce"></i>
+                                <span>원터치 자동입력</span>
+                            </button>
+                            <button
+                                onClick={() => setShowSmsPush(false)}
+                                className="text-slate-400 hover:text-white font-bold text-[10px] px-2 py-1 transition-colors"
+                            >
+                                닫기
+                            </button>
+                        </div>
                     </div>
                 </div>
             )}

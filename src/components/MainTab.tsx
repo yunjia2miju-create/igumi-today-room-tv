@@ -79,12 +79,25 @@ export const MainTab = ({
     }, [isMobileSimulationMode]);
 
     const [inquiryData, setInquiryData] = React.useState({ name: '', phone: '', message: '' });
-    const handleInquirySubmit = (e: React.FormEvent) => {
+    const handleInquirySubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         const newInq = { ...inquiryData, id: 'local-inq-' + Date.now(), processed: false, createdAt: Date.now() };
-        setInquiries([newInq, ...inquiries]);
-        setInquiryData({ name: '', phone: '', message: '' });
-        showToast("의뢰 접수 완료!", "success");
+        try {
+            const res = await fetch('/api/inquiries', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(newInq)
+            });
+            const updated = await res.json();
+            if (Array.isArray(updated)) {
+                setInquiries(updated);
+                setInquiryData({ name: '', phone: '', message: '' });
+                showToast("의뢰 접수 완료! 소장님이 곧 연락드리겠습니다.", "success");
+            }
+        } catch (err) {
+            console.error(err);
+            showToast("서버 통신 실패로 접수되지 않았습니다.", "error");
+        }
     };
 
     return (

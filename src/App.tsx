@@ -8,7 +8,17 @@ import { Modals } from './components/Modals';
 export const ToastContext = React.createContext<{ showToast: (msg: string, type?: 'success'|'error') => void } | null>(null);
 
 export default function App() {
-    const { isAdminLoggedIn, setIsAdminLoggedIn, isMobileSimulationMode, setIsMobileSimulationMode, activeSection, setActiveSection, selectedPostId } = useAppStore();
+    const { 
+        isAdminLoggedIn, 
+        setIsAdminLoggedIn, 
+        isMobileSimulationMode, 
+        setIsMobileSimulationMode, 
+        activeSection, 
+        setActiveSection, 
+        selectedPostId,
+        setPosts,
+        setInquiries
+    } = useAppStore();
 
     // Modals state
     const [writeModalOpen, setWriteModalOpen] = useState(false);
@@ -20,6 +30,28 @@ export default function App() {
 
     // Toast state
     const [toasts, setToasts] = useState<{id: number, msg: string, type: 'success'|'error'}[]>([]);
+
+    useEffect(() => {
+        // Fetch posts from database
+        fetch('/api/posts')
+            .then(res => res.json())
+            .then(data => {
+                if (Array.isArray(data)) {
+                    setPosts(data);
+                }
+            })
+            .catch(err => console.error("매물 목록을 불러오는 중 오류 발생:", err));
+
+        // Fetch inquiries from database
+        fetch('/api/inquiries')
+            .then(res => res.json())
+            .then(data => {
+                if (Array.isArray(data)) {
+                    setInquiries(data);
+                }
+            })
+            .catch(err => console.error("의뢰 목록을 불러오는 중 오류 발생:", err));
+    }, []);
 
     const showToast = (msg: string, type: 'success'|'error' = 'success') => {
         const id = Date.now();
