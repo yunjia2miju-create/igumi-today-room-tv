@@ -8,7 +8,7 @@ import {
   orderBy,
   updateDoc
 } from 'firebase/firestore';
-import { db, OperationType, handleFirestoreError } from './firebase';
+import { db, OperationType, handleFirestoreError, auth } from './firebase';
 import { Post, Inquiry, defaultPosts } from './data';
 
 // --- Posts API ---
@@ -157,17 +157,21 @@ export async function deletePostService(id: string): Promise<void> {
  */
 export async function getInquiriesService(): Promise<Inquiry[]> {
   let firestoreInqs: Inquiry[] = [];
-  try {
-    // 1. Try Firestore first
-    const inquiriesRef = collection(db, 'inquiries');
-    const q = query(inquiriesRef, orderBy('createdAt', 'desc'));
-    const snapshot = await getDocs(q);
-    
-    snapshot.forEach((doc) => {
-      firestoreInqs.push(doc.data() as Inquiry);
-    });
-  } catch (err) {
-    console.warn("Firestore inquiries retrieval failed, trying local API:", err);
+  
+  // 1. Try Firestore first only if compiled as the authorized admin to prevent permission warnings
+  const isAdmin = auth.currentUser && auth.currentUser.email === 'yunjia2miju@gmail.com';
+  if (isAdmin) {
+    try {
+      const inquiriesRef = collection(db, 'inquiries');
+      const q = query(inquiriesRef, orderBy('createdAt', 'desc'));
+      const snapshot = await getDocs(q);
+      
+      snapshot.forEach((doc) => {
+        firestoreInqs.push(doc.data() as Inquiry);
+      });
+    } catch (err) {
+      console.warn("Firestore inquiries retrieval failed, trying local API:", err);
+    }
   }
 
   let expressInqs: Inquiry[] = [];

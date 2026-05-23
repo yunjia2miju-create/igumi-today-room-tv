@@ -14,6 +14,9 @@ export default function App() {
     const { 
         isAdminLoggedIn, 
         setIsAdminLoggedIn, 
+        isMemberLoggedIn,
+        memberName,
+        setMemberLoggedIn,
         isMobileSimulationMode, 
         setIsMobileSimulationMode, 
         activeSection, 
@@ -75,6 +78,11 @@ export default function App() {
         showToast("소장님 모드가 안전하게 해제되었습니다. 소유자 연락처가 비공개 처리되었습니다.", "success");
     };
 
+    const handleMemberLogout = () => {
+        setMemberLoggedIn(false, null, null);
+        showToast("회원 로그아웃이 완료되었습니다. 웹 전용 탐색 모드로 전환되었습니다.", "success");
+    };
+
     useEffect(() => {
         window.scrollTo(0, 0);
     }, [activeSection]);
@@ -102,7 +110,7 @@ export default function App() {
                 )}
 
                 <div className="bg-gradient-to-r from-emerald-600 to-teal-700 text-white text-[11px] sm:text-xs py-2 px-4 text-center font-medium shadow-sm w-full">
-                    <i className="fa-solid fa-bullhorn mr-1"></i> 정직한 발걸음과 생생한 관찰 기록, 태왕공인중개사가 전문적인 중개를 약속합니다.
+                    <i className="fa-solid fa-bullhorn mr-1"></i> 정직한 발걸음과 생생한 관찰 기록, 구미태왕공인중개사가 전문적인 중개를 약속합니다.
                 </div>
 
                 <header className="sticky top-0 bg-white/95 backdrop-blur-md shadow-sm border-b border-slate-100 z-40 w-full transition-all">
@@ -112,9 +120,29 @@ export default function App() {
                                 <span className="bg-emerald-600 text-white p-2 sm:p-2.5 rounded-xl shadow-md shadow-emerald-600/20 group-hover:bg-emerald-700 transition-colors">
                                     <i className="fa-solid fa-house-chimney text-lg sm:text-xl"></i>
                                 </span>
-                                <div className="flex flex-col">
-                                    <span className="text-lg sm:text-xl font-black text-slate-900 tracking-tight">태왕<span className="text-emerald-600">공인중개사</span></span>
-                                    <span className="text-[9px] sm:text-[10px] text-slate-400 font-bold uppercase tracking-wider hidden sm:block">Taewang Real Estate</span>
+                                <div className="flex items-center gap-2.5 sm:gap-4 ml-1">
+                                    {/* Left brand column: *구미* / *GUMI* */}
+                                    <div className="flex flex-col items-center justify-center text-center select-none">
+                                        <span className="text-sm sm:text-base md:text-lg font-black text-slate-900 tracking-tight leading-none mb-1 animate-pulse">
+                                            *구미*
+                                        </span>
+                                        <span className="text-[9px] sm:text-[10px] text-slate-400 font-extrabold uppercase tracking-widest leading-none">
+                                            *GUMI*
+                                        </span>
+                                    </div>
+
+                                    {/* Modern vertical elegant separator */}
+                                    <div className="h-6 w-[1.5px] bg-slate-200 self-center"></div>
+
+                                    {/* Right brand column: Name / English */}
+                                    <div className="flex flex-col justify-center">
+                                        <span className="text-base sm:text-lg md:text-xl font-black text-slate-900 tracking-tight leading-none mb-1">
+                                            태왕<span className="text-emerald-600">공인중개사사무소</span>
+                                        </span>
+                                        <span className="text-[9px] sm:text-[10px] text-slate-400 font-bold uppercase tracking-wider leading-none">
+                                            TAEWANG REAL ESTATE
+                                        </span>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -123,7 +151,7 @@ export default function App() {
 
                 <main className="flex-grow w-full">
                     {activeSection === 'main' && <MainTab openPhoneSelectModal={openPhoneSelectModal} showToast={showToast} />}
-                    {activeSection === 'detail' && <DetailTab openPhoneSelectModal={openPhoneSelectModal} />}
+                    {activeSection === 'detail' && <DetailTab openPhoneSelectModal={openPhoneSelectModal} showToast={showToast} />}
                 </main>
 
                 <footer className="bg-slate-950 text-slate-500 py-12 border-t border-slate-900 w-full font-medium mt-auto">
@@ -135,7 +163,7 @@ export default function App() {
                                 <p>소재지 : 구미시 송정대로 6길18 (송정동 472-10번지)</p>
                                 <p>연락처 : <a href="tel:054-455-6789" className="hover:text-emerald-500 transition-colors">054-455-6789</a>, <a href="tel:010-7590-0111" className="hover:text-emerald-500 transition-colors">010-7590-0111</a></p>
                             </div>
-                            <p className="text-[11px] text-slate-700 pt-1">© 2026 Taewang Real Estate. All rights reserved.</p>
+                            <p className="text-[11px] text-slate-700 pt-1">© 2026 Gumi Taewang Real Estate. All rights reserved.</p>
                         </div>
                         <div className="w-full md:w-auto flex justify-center mt-4 md:mt-0">
                             {isAdminLoggedIn ? (
@@ -150,10 +178,21 @@ export default function App() {
                                         <i className="fa-solid fa-unlock text-xs"></i><span>3. 소장님 로그아웃</span>
                                     </button>
                                 </div>
+                            ) : isMemberLoggedIn ? (
+                                <div className="flex flex-col gap-2.5 w-full max-w-[280px] mx-auto md:mx-0 bg-slate-900 border border-slate-800 p-4 rounded-2xl">
+                                    <p className="text-white text-xs font-black text-center mb-1">
+                                        <i className="fa-solid fa-circle-user text-emerald-400 mr-1.5"></i>
+                                        <span>{memberName || '일반'} 회원 로그인 중</span>
+                                    </p>
+                                    <p className="text-slate-400 text-[10px] text-center mb-3">방문회원은 웹 전용 탐색 권한으로 제한됩니다.</p>
+                                    <button onClick={handleMemberLogout} className="w-full bg-slate-800 hover:bg-slate-700 text-slate-300 py-2 px-4 rounded-xl text-xs font-black shadow-md flex items-center justify-center gap-2 transition-all">
+                                        <i className="fa-solid fa-right-from-bracket text-[11px]"></i><span>회원 로그아웃</span>
+                                    </button>
+                                </div>
                             ) : (
                                 <div className="flex flex-col gap-2.5 w-full max-w-[280px] mx-auto md:mx-0">
-                                    <button onClick={() => setAdminLoginOpen(true)} className="w-full bg-slate-800 hover:bg-slate-700 text-slate-200 py-3 px-4 rounded-xl text-xs font-black shadow-md border border-slate-700 flex items-center justify-center gap-2 transition-all">
-                                        <i className="fa-solid fa-lock text-xs"></i><span>관리자 대시보드</span>
+                                    <button onClick={() => setAdminLoginOpen(true)} className="w-full bg-slate-850 hover:bg-slate-700 text-slate-200 py-3 px-4 rounded-xl text-xs font-black shadow-md border border-slate-700 flex items-center justify-center gap-2 transition-all">
+                                        <i className="fa-solid fa-lock text-xs"></i><span>소셜 로그인 / 회원 가입</span>
                                     </button>
                                 </div>
                             )}

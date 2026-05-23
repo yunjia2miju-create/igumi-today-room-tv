@@ -1,9 +1,13 @@
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700;900&display=swap');
 @import "tailwindcss";
 
 body {
     font-family: 'Noto Sans KR', sans-serif;
     background-color: #f8fafc;
     -webkit-tap-highlight-color: transparent;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
 }
 
 h1, h2, h3, h4, h5, h6 {
@@ -25,7 +29,7 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 .animate-scroll-up {
-    animation: scrollUp 40s linear infinite;
+    animation: scrollUp 18s linear infinite;
 }
 
 .animate-scroll-up:hover {
@@ -50,13 +54,14 @@ h1, h2, h3, h4, h5, h6 {
     position: absolute;
     bottom: 8px;
     right: 8px;
-    background-color: rgba(0, 0, 0, 0.65);
-    backdrop-filter: blur(4px);
-    border: 1px solid rgba(255, 255, 255, 0.2);
+    background-color: transparent;
+    backdrop-filter: none;
+    border: none;
     color: rgba(255, 255, 255, 0.95);
+    text-shadow: 1px 1px 3px rgba(0, 0, 0, 0.95), 0px 0px 5px rgba(0, 0, 0, 0.6);
     font-size: 10px;
     font-weight: 800;
-    padding: 4px 8px;
+    padding: 0;
     border-radius: 0px;
     letter-spacing: 0.05em;
     pointer-events: none;
@@ -71,7 +76,7 @@ h1, h2, h3, h4, h5, h6 {
         bottom: 12px;
         right: 12px;
         font-size: 11px;
-        padding: 5px 10px;
+        padding: 0;
     }
 }
 
@@ -167,5 +172,86 @@ h1, h2, h3, h4, h5, h6 {
 .animate-pulse-slow {
     animation: pulseSlow 3s ease-in-out infinite;
 }
+
+@keyframes vrGlow {
+    0%, 100% {
+        text-shadow: 0 0 6px rgba(16, 185, 129, 0.5), 0 0 15px rgba(16, 185, 129, 0.3);
+        transform: scale(1);
+    }
+    50% {
+        text-shadow: 0 0 16px rgba(16, 185, 129, 0.8), 0 0 30px rgba(52, 211, 153, 0.6), 0 0 40px rgba(52, 211, 153, 0.3);
+        transform: scale(1.04);
+    }
+}
+
+.animate-vr-glow {
+    display: inline-block;
+    animation: vrGlow 2.5s ease-in-out infinite;
+    transform-origin: center;
+}
+
+@keyframes vrIconRotate {
+    0%, 100% {
+        transform: rotate(0deg) scale(1);
+    }
+    20% {
+        transform: rotate(-12deg) scale(1.15);
+    }
+    40% {
+        transform: rotate(10deg) scale(1.15);
+    }
+    60% {
+        transform: rotate(-8deg) scale(1.1);
+    }
+    80% {
+        transform: rotate(6deg) scale(1.1);
+    }
+}
+
+.animate-vr-icon {
+    display: inline-block;
+    animation: vrIconRotate 4s ease-in-out infinite;
+    transform-origin: center;
+}
+
+@keyframes consultGlow {
+    0%, 100% {
+        text-shadow: 0 0 8px rgba(52, 211, 153, 0.4), 0 0 20px rgba(52, 211, 153, 0.2);
+        color: #34d399;
+        transform: scale(1);
+    }
+    50% {
+        text-shadow: 0 0 20px rgba(16, 185, 129, 0.9), 0 0 35px rgba(52, 211, 153, 0.7), 0 0 50px rgba(16, 185, 129, 0.4);
+        color: #6ee7b7;
+        transform: scale(1.05);
+    }
+}
+
+.animate-consult-glow {
+    display: inline-block;
+    animation: consultGlow 2s ease-in-out infinite;
+    transform-origin: center;
+}
+
+@keyframes headingZoomGlow {
+    0%, 100% {
+        text-shadow: 0 0 10px rgba(16, 185, 129, 0.4), 0 0 20px rgba(16, 185, 129, 0.2);
+        color: #ffffff;
+        transform: scale(1);
+    }
+    50% {
+        text-shadow: 0 0 25px rgba(52, 211, 153, 0.95), 0 0 45px rgba(16, 185, 129, 0.7), 0 0 60px rgba(52, 211, 153, 0.4);
+        color: #34d399;
+        transform: scale(1.06);
+    }
+}
+
+.animate-heading-zoom-glow {
+    display: inline-block;
+    animation: headingZoomGlow 3s ease-in-out infinite;
+    transform-origin: center;
+}
+
+
 
 

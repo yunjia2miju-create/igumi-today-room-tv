@@ -6,13 +6,16 @@ import { useAppStore } from '../store';
 import PannellumViewer from './PannellumViewer';
 
 export const DetailTab = ({ 
-    openPhoneSelectModal 
+    openPhoneSelectModal,
+    showToast
 }: { 
-    openPhoneSelectModal: (e: React.MouseEvent, mobilePhone: string, ownerPhone?: string) => void 
+    openPhoneSelectModal: (e: React.MouseEvent, mobilePhone: string, ownerPhone?: string) => void,
+    showToast?: (msg: string, type?: 'success'|'error') => void
 }) => {
     const { posts, isAdminLoggedIn, selectedPostId, setSelectedPostId, setActiveSection, isMobileSimulationMode } = useAppStore();
 
     const [isFetchingDetail, setIsFetchingDetail] = React.useState(true);
+    const [copied, setCopied] = React.useState(false);
 
     React.useEffect(() => {
         if (selectedPostId) {
@@ -114,8 +117,8 @@ export const DetailTab = ({
 
     return (
         <section id="detail-section" className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-10 transition-opacity duration-300 w-full">
-            <button onClick={() => setActiveSection('main')} className="inline-flex items-center space-x-1.5 sm:space-x-2 text-emerald-700 hover:text-emerald-800 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200/80 font-bold px-4 sm:px-5 py-2.5 sm:py-3 rounded-xl sm:rounded-2xl transition-all shadow-sm text-xs sm:text-sm mb-4 sm:mb-6">
-                <i className="fa-solid fa-chevron-left animate-pulse"></i>
+            <button onClick={() => setActiveSection('main')} className="inline-flex items-center justify-center space-x-2 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-black px-6 sm:px-8 py-3.5 sm:py-4 rounded-xl sm:rounded-2xl transition-all shadow-lg shadow-emerald-950/20 text-xs sm:text-sm mb-4 sm:mb-6 w-full">
+                <i className="fa-solid fa-chevron-left"></i>
                 <span>매물 대장으로 돌아가기</span>
             </button>
 
@@ -160,7 +163,9 @@ export const DetailTab = ({
                                 {p.transactionType || '월세'}
                             </span>
                             <span className="bg-slate-900 text-white text-xs font-black px-2.5 py-1 rounded">{p.category}</span>
-                            <span className="bg-emerald-50 text-emerald-600 text-xs font-black px-2.5 py-1 rounded border border-emerald-100">{p.room}호</span>
+                            <span className="bg-emerald-50 text-emerald-600 text-xs font-black px-2.5 py-1 rounded border border-emerald-100">
+                                {p.floor && p.totalFloor ? `${p.floor}/${p.totalFloor}층` : (p.floor ? `${p.floor}층` : (p.room ? `${p.room}호` : '지상층'))}
+                            </span>
                             <span className="bg-slate-100 text-slate-600 text-xs font-bold px-2 py-1 rounded">{p.dong || '구미시'}</span>
                         </div>
 
@@ -175,9 +180,75 @@ export const DetailTab = ({
                 </h1>
                 <p className="text-xl font-bold text-emerald-600 border-b border-slate-100 pb-4 mb-6">{formatDisplayPrice(p.price, p.transactionType || '월세')}</p>
 
-                <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 mb-8">
-                    <span className="text-xs font-bold text-slate-400">책임중개 소장 한마디</span>
-                    <p className="text-sm font-bold text-slate-800 mt-1">"{p.title}"</p>
+                <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 mb-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                    <div className="space-y-1">
+                        <span className="text-xs font-bold text-slate-400">책임중개 소장 한마디 및 블로그 원고</span>
+                        <p className="text-sm font-black text-slate-800">"{p.title}"</p>
+                    </div>
+                    {isAdminLoggedIn ? (
+                        <button 
+                            onClick={() => {
+                                const titleText = p.title || "";
+                                const introText = p.intro || "";
+                                const bodyText = p.body || "";
+                                
+                                const formatToDoubleSpacing = (text: string) => {
+                                    if (!text) return "";
+                                    return text
+                                        .replace(/\\n/g, '\n')
+                                        .split('\n')
+                                        .map(line => line.trim())
+                                        .filter(line => line.length > 0)
+                                        .join('\n\n');
+                                };
+                                
+                                const formattedTitle = formatToDoubleSpacing(titleText);
+                                const formattedIntro = formatToDoubleSpacing(introText);
+                                const formattedBody = formatToDoubleSpacing(bodyText);
+                                
+                                // Build the final optimized blog post
+                                const fullContent = `📢 [블로그 홍보 제목]\n\n${formattedTitle}\n\n🟢 [체험적 서론]\n\n${formattedIntro}\n\n🏠 [상세한 관찰 본론 및 법정 고시]\n\n${formattedBody}`;
+                                
+                                navigator.clipboard.writeText(fullContent).then(() => {
+                                    setCopied(true);
+                                    setTimeout(() => setCopied(false), 2000);
+                                }).catch(err => {
+                                    console.error("Copy failed: ", err);
+                                });
+                            }}
+                            className={`w-full sm:w-auto px-4 py-2.5 rounded-xl text-xs font-black transition-all flex items-center justify-center gap-1.5 shrink-0 select-none shadow-sm cursor-pointer border ${
+                                copied 
+                                ? 'bg-emerald-50 text-emerald-600 border-emerald-200' 
+                                : 'bg-emerald-600 hover:bg-emerald-700 text-white border-emerald-600 shadow-emerald-950/25 shadow-sm'
+                            }`}
+                        >
+                            {copied ? (
+                                <>
+                                    <i className="fa-solid fa-circle-check"></i>
+                                    <span>이중 개행 원고 복사 성공!</span>
+                                </>
+                            ) : (
+                                <>
+                                    <i className="fa-solid fa-paste"></i>
+                                    <span>블로그 원고 복사 (원스톱)</span>
+                                </>
+                            )}
+                        </button>
+                    ) : (
+                        <button 
+                            onClick={() => {
+                                if (showToast) {
+                                    showToast("소장님(관리자) 로그인 상태에서만 원고 복사 기능을 사용할 수 있습니다.", "error");
+                                } else {
+                                    alert("소장님(관리자) 로그인 상태에서만 원고 복사 기능을 사용할 수 있습니다.");
+                                }
+                            }}
+                            className="w-full sm:w-auto px-4 py-2.5 rounded-xl text-xs font-black transition-all flex items-center justify-center gap-1.5 shrink-0 select-none shadow-sm cursor-pointer border bg-slate-100 hover:bg-slate-200 text-slate-500 border-slate-200"
+                        >
+                            <i className="fa-solid fa-lock text-slate-400"></i>
+                            <span>원고 복사 (소장님 전용 🔒)</span>
+                        </button>
+                    )}
                 </div>
 
                 <div className="aspect-[16/9] overflow-hidden rounded-2xl border border-slate-100 shadow-sm mb-8 watermark-container">
@@ -190,10 +261,10 @@ export const DetailTab = ({
 
                 {panoUrls.length > 0 && (
                     <div className="mb-8">
-                        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-4">
-                            <h4 className="text-md font-bold text-slate-900 flex items-center space-x-1.5">
-                                <i className="fa-solid fa-vr-cardboard text-emerald-600"></i>
-                                <span>공간 실감 360° 현장 VR 투어</span>
+                        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-5 border-b border-dashed border-emerald-500/10 pb-3">
+                            <h4 className="text-lg sm:text-2xl font-black text-slate-900 flex items-center gap-2 sm:gap-2.5">
+                                <i className="fa-solid fa-vr-cardboard text-emerald-600 text-xl sm:text-3xl animate-vr-icon"></i>
+                                <span className="animate-vr-glow text-emerald-600 sm:text-emerald-700">공간 실감 360° 현장 VR 투어</span>
                             </h4>
                             {panoUrls.length > 1 && (
                                 <div className="flex flex-wrap gap-1.5">
@@ -238,8 +309,55 @@ export const DetailTab = ({
                     <div className="p-6 bg-emerald-50/50 border-l-4 border-emerald-500 rounded-r-2xl">
                         <p className="text-sm font-semibold text-emerald-900 italic">"{p.intro}"</p>
                     </div>
-                    <div className="text-sm sm:text-base text-slate-600 markdown-content">
-                        <ReactMarkdown remarkPlugins={[remarkGfm]}>{p.body}</ReactMarkdown>
+                    <div className="text-sm sm:text-base text-slate-600 markdown-content whitespace-pre-wrap leading-relaxed space-y-4">
+                        {p.body ? (() => {
+                            let cleared = p.body.replace(/\\n/g, '\n');
+                            // 마크다운 헤더가 깨지거나 날것 그대로 텍스트 (#, ##, ###)로 나오는 것을 방지하기 위해 깔끔하게 정제
+                            cleared = cleared.replace(/(?:^|\n)###\s*(.*?)(?=\n|$)/g, '\n\n[ $1 ]\n');
+                            cleared = cleared.replace(/(?:^|\n)##\s*(.*?)(?=\n|$)/g, '\n\n[ $1 ]\n');
+                            cleared = cleared.replace(/(?:^|\n)#\s*(.*?)(?=\n|$)/g, '\n\n[ $1 ]\n');
+
+                            // Detect legal disclosures section
+                            const legalKeywords = ['중개대상물', '법정 고시', '표시광고', '법정표시사항', '표시사항 고시란', '표시 광고'];
+                            let splitIndex = -1;
+                            for (const keyword of legalKeywords) {
+                                const idx = cleared.indexOf(keyword);
+                                if (idx !== -1) {
+                                    // Search backward for the start of the section
+                                    let startIdx = idx;
+                                    while (startIdx > 0 && cleared[startIdx] !== '\n') {
+                                        startIdx--;
+                                    }
+                                    splitIndex = startIdx;
+                                    break;
+                                }
+                            }
+
+                            if (splitIndex !== -1) {
+                                const mainBody = cleared.substring(0, splitIndex).trim();
+                                const legalDisclosures = cleared.substring(splitIndex).trim();
+                                return (
+                                    <div className="space-y-6">
+                                        <div className="whitespace-pre-wrap leading-relaxed">{mainBody}</div>
+                                        <div className="mt-8 bg-slate-50 border border-slate-200/80 rounded-2xl p-4 sm:p-5 shadow-sm text-left">
+                                            <div className="flex items-center gap-2 mb-3 text-slate-800 border-b border-slate-200 pb-2 flex-wrap">
+                                                <i className="fa-solid fa-file-shield text-emerald-600 text-base"></i>
+                                                <h4 className="text-xs sm:text-sm font-black uppercase tracking-tight text-slate-900">📋 법정 중개대상물 표시광고 확인서</h4>
+                                            </div>
+                                            <div className="text-[11px] sm:text-xs text-slate-600 whitespace-pre-wrap leading-loose font-mono bg-white border border-slate-100 p-4 rounded-xl shadow-inner max-h-[350px] overflow-y-auto w-full break-all">
+                                                {legalDisclosures}
+                                            </div>
+                                            <p className="text-[9px] sm:text-[10px] text-slate-400 mt-2 font-bold leading-relaxed flex items-center gap-1">
+                                                <i className="fa-solid fa-circle-exclamation text-amber-500"></i>
+                                                <span>공인중개사법시행령 제17조의2(중개대상물 명시의무)를 준수하는 공식 기재 고시란입니다.</span>
+                                            </p>
+                                         </div>
+                                    </div>
+                                );
+                            }
+
+                            return <div className="whitespace-pre-wrap leading-relaxed">{cleared.trim()}</div>;
+                        })() : ""}
                     </div>
                 </div>
 
@@ -285,33 +403,42 @@ export const DetailTab = ({
                     </div>
                 </div>
 
-                <div className="mt-12 p-6 bg-gradient-to-br from-slate-900 to-emerald-950 text-white rounded-2xl shadow-xl flex flex-col sm:flex-row justify-between items-center gap-4">
-                    <div className="text-center lg:text-left w-full lg:w-auto">
-                        <h4 className="text-sm font-black text-emerald-400">이 매물 관련 상세 중개 상담이 필요하신가요?</h4>
-                        <p className="text-[11px] text-slate-300 mt-1">태왕 대표 공인중개사 직통 무료 상담</p>
+                <div className="mt-12 p-6 sm:p-10 bg-gradient-to-br from-slate-900 via-slate-950 to-emerald-950 text-white rounded-3xl shadow-xl flex flex-col justify-center items-center gap-6 border border-emerald-950/20 w-full max-w-sm sm:max-w-none mx-auto">
+                    <div className="text-center w-full overflow-hidden py-2">
+                        <h4 className="text-lg sm:text-2xl md:text-3xl font-black tracking-tight animate-consult-glow flex items-center justify-center gap-2.5 sm:gap-3 flex-wrap">
+                            <i className="fa-solid fa-headset text-xl sm:text-2xl md:text-3xl shrink-0 opacity-90"></i>
+                            <span>이 매물 관련 상세 중개 상담이 필요하신가요?</span>
+                        </h4>
+                        <p className="text-[11px] sm:text-base text-slate-300 mt-3 sm:mt-4 font-black">태왕 대표 공인중개사 직통 무료 상담</p>
                     </div>
-                    <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
-                        {isMobile && (
-                            <>
-                                <a 
-                                    href={`tel:${p.phone || '010-7590-0111'}`} 
-                                    onClick={(e) => { 
-                                        if (isAdminLoggedIn) {
-                                            e.preventDefault(); 
-                                            openPhoneSelectModal(e, p.phone || '010-7590-0111', p.ownerPhone); 
-                                        }
-                                    }} 
-                                    className="bg-emerald-600 hover:bg-emerald-500 text-white px-5 py-3 rounded-xl text-xs font-bold text-center flex items-center justify-center gap-1.5 shadow-md shadow-emerald-900/30">
-                                    <i className="fa-solid fa-mobile-screen"></i>
-                                    <span>모바일 연결</span>
-                                </a>
-                                <a href="tel:054-455-6789" className="bg-slate-700 hover:bg-slate-600 text-white px-5 py-3 rounded-xl text-xs font-bold text-center flex items-center justify-center gap-1.5">
-                                    <i className="fa-solid fa-phone"></i>
-                                    <span>유선전화 연결</span>
-                                </a>
-                            </>
-                        )}
-                        <button onClick={() => { setActiveSection('main'); setTimeout(() => document.getElementById('quick-inquiry')?.scrollIntoView({behavior: 'smooth'}), 100); }} className="bg-white/10 hover:bg-white/20 border border-white/10 text-white px-5 py-3 rounded-xl text-xs font-bold text-center flex items-center justify-center gap-1.5 w-full sm:w-auto">
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4 w-full">
+                        <a 
+                            href={`tel:${p.phone || '010-7590-0111'}`} 
+                            onClick={(e) => { 
+                                if (isAdminLoggedIn) {
+                                    e.preventDefault(); 
+                                    openPhoneSelectModal(e, p.phone || '010-7590-0111', p.ownerPhone); 
+                                }
+                            }} 
+                            className="bg-emerald-600 hover:bg-emerald-500 text-white px-6 py-3.5 sm:py-4.5 rounded-xl sm:rounded-2xl text-xs sm:text-sm font-black text-center flex items-center justify-center gap-2 shadow-md shadow-emerald-900/30 transition-all select-none cursor-pointer">
+                            <i className="fa-solid fa-mobile-screen"></i>
+                            <span>모바일 연결</span>
+                        </a>
+                        <a 
+                            href="tel:054-455-6789" 
+                            className="bg-[#2a3547] hover:bg-[#344259] text-white px-6 py-3.5 sm:py-4.5 rounded-xl sm:rounded-2xl text-xs sm:text-sm font-black text-center flex items-center justify-center gap-2 border border-slate-700/50 transition-all select-none cursor-pointer">
+                            <i className="fa-solid fa-phone"></i>
+                            <span>유선전화 연결</span>
+                        </a>
+                        <button 
+                            onClick={() => { 
+                                setActiveSection('main'); 
+                                setTimeout(() => {
+                                    const el = document.getElementById('quick-inquiry');
+                                    if (el) el.scrollIntoView({behavior: 'smooth'});
+                                }, 150); 
+                            }} 
+                            className="bg-white/10 hover:bg-white/20 border border-white/10 text-white px-6 py-3.5 sm:py-4.5 rounded-xl sm:rounded-2xl text-xs sm:text-sm font-black text-center flex items-center justify-center gap-2 transition-all w-full select-none cursor-pointer">
                             <i className="fa-solid fa-clipboard-question"></i>
                             <span>의뢰하기</span>
                         </button>
@@ -367,8 +494,13 @@ export const DetailTab = ({
                                 </div>
                                 <div className="p-4 flex-grow flex flex-col justify-between">
                                     <div className="space-y-1">
-                                        <h4 className="text-sm font-black text-slate-900 line-clamp-1 group-hover:text-emerald-600 transition-colors">
-                                            {rec.building} {rec.room}호
+                                        <h4 className="text-sm font-black text-slate-900 group-hover:text-emerald-600 transition-colors flex items-center gap-1.5 flex-wrap">
+                                            <span className="truncate">{rec.building}</span>
+                                            {(rec.floor || rec.totalFloor) && (
+                                                <span className="text-[10px] text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded font-black border border-emerald-100 shrink-0">
+                                                    {rec.floor && rec.totalFloor ? `${rec.floor}/${rec.totalFloor}층` : (rec.floor ? `${rec.floor}층` : `${rec.totalFloor}층`)}
+                                                </span>
+                                            )}
                                         </h4>
                                         <p className="text-slate-500 text-[11px] line-clamp-1">
                                             {rec.title}

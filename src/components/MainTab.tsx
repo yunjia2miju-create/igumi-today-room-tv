@@ -110,15 +110,18 @@ export const MainTab = ({
                         <h1 className="text-3xl lg:text-5xl font-black leading-tight tracking-tight">
                             발로 뛰어 검증한 <br/>정직한 지역 가치와 현장 답사기
                         </h1>
-                        <div className="flex items-center gap-4 py-4">
-                            <div className="h-px bg-emerald-500/30 flex-grow"></div>
+                        <div className="flex items-center gap-4 py-6">
+                            <div className="h-px bg-gradient-to-r from-transparent to-emerald-500/50 flex-grow"></div>
                             <div className="flex flex-col items-center">
-                                <span className="text-emerald-400 font-black text-2xl lg:text-3xl tracking-tighter shrink-0 drop-shadow-[0_0_15px_rgba(16,185,129,0.5)]">
-                                    공간 실감 360° 현장 VR 투어
-                                </span>
-                                <span className="text-emerald-500/80 text-[10px] font-bold tracking-[0.2em] transform -translate-y-1">NEXT-GEN REAL ESTATE TECHNOLOGY</span>
+                                <div className="flex items-center gap-2 sm:gap-3">
+                                    <i className="fa-solid fa-vr-cardboard text-emerald-400 text-3xl sm:text-4xl lg:text-5xl animate-vr-icon"></i>
+                                    <span className="text-emerald-400 font-black text-3xl sm:text-4xl lg:text-5xl tracking-tight shrink-0 drop-shadow-[0_0_20px_rgba(16,185,129,0.6)] animate-vr-glow">
+                                        공간 실감 360° 현장 VR 투어
+                                    </span>
+                                </div>
+                                <span className="text-emerald-400/70 text-[10px] sm:text-xs font-black tracking-[0.25em] mt-1.5 uppercase">NEXT-GEN REAL ESTATE TECHNOLOGY</span>
                             </div>
-                            <div className="h-px bg-emerald-500/30 flex-grow"></div>
+                            <div className="h-px bg-gradient-to-l from-transparent to-emerald-500/50 flex-grow"></div>
                         </div>
                         <p className="text-slate-200 text-base lg:text-lg leading-relaxed font-black mb-2 shadow-black/20 text-shadow-sm">
                             "압도적 공간감! 사진으로는 볼 수 없던 구석구석을 360° 가상 투어로 경험하세요."
@@ -127,7 +130,17 @@ export const MainTab = ({
                             태왕은 단순히 정보를 전달하는 것을 넘어, 고객님이 현장에 직접 계신 것처럼 생생한 경험을 선사하기 위해 모든 매물을 360° 입체 촬영하여 제공합니다. 
                         </p>
                         <div className="flex gap-3 pt-2">
-                            <button onClick={() => { setShowOnlyRecommended(true); setActiveCategory('all'); setActiveDong('all'); }} className="bg-emerald-600 hover:bg-emerald-700 text-white text-center px-6 py-3.5 rounded-xl font-bold transition-all shadow-md shadow-emerald-900/40 text-sm">
+                            <button 
+                                onClick={() => { 
+                                    setShowOnlyRecommended(true); 
+                                    setActiveCategory('all'); 
+                                    setActiveDong('all');
+                                    setTimeout(() => {
+                                        document.getElementById('blog-list')?.scrollIntoView({ behavior: 'smooth' });
+                                    }, 100);
+                                }} 
+                                className="bg-emerald-600 hover:bg-emerald-700 text-white text-center px-6 py-3.5 rounded-xl font-bold transition-all shadow-md shadow-emerald-900/40 text-sm cursor-pointer select-none"
+                            >
                                 추천 매물 목록 둘러보기
                             </button>
                             <a href="#quick-inquiry" className="bg-white/10 hover:bg-white/20 border border-white/10 text-white text-center px-6 py-3.5 rounded-xl font-bold transition-all text-sm">
@@ -146,10 +159,10 @@ export const MainTab = ({
                         <h1 className="text-xl sm:text-2xl font-black leading-tight tracking-tight text-left">
                             발로 뛰어 검증한 <br/>정직한 지역 가치와 현장 답사기
                         </h1>
-                        <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-lg p-2.5 my-1 shadow-[inset_0_1px_10px_rgba(16,185,129,0.1)]">
-                            <div className="text-emerald-400 font-black text-sm tracking-tighter text-left flex items-center gap-1.5">
-                                <i className="fa-solid fa-vr-cardboard animate-pulse"></i>
-                                <span>공간 실감 360° 현장 VR 투어</span>
+                        <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-xl p-4 my-2.5 shadow-[inset_0_1px_15px_rgba(16,185,129,0.2)]">
+                            <div className="text-emerald-400 font-black text-lg sm:text-xl tracking-tight text-left flex items-center gap-2">
+                                <i className="fa-solid fa-vr-cardboard text-xl sm:text-2xl animate-vr-icon"></i>
+                                <span className="animate-vr-glow">공간 실감 360° 현장 VR 투어</span>
                             </div>
                             <p className="text-slate-300 text-[9px] leading-relaxed text-left font-medium italic mt-1">
                                 "구미 전 지역 공실을 360° 가상 투어로 생생하게"
@@ -162,7 +175,17 @@ export const MainTab = ({
                             <span className="bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 text-[10px] px-3 py-1 rounded-full font-bold uppercase tracking-widest inline-block w-fit">태왕 오리지널 현장 브리핑</span>
                         </div>
                         <div className="flex flex-col gap-2 pt-2">
-                            <button onClick={() => { setShowOnlyRecommended(true); setActiveCategory('all'); setActiveDong('all'); }} className="w-full bg-emerald-600 hover:bg-emerald-500 text-white text-center py-3 rounded-xl font-bold transition-all shadow-md shadow-emerald-950/40 text-xs">
+                            <button 
+                                onClick={() => { 
+                                    setShowOnlyRecommended(true); 
+                                    setActiveCategory('all'); 
+                                    setActiveDong('all');
+                                    setTimeout(() => {
+                                        document.getElementById('blog-list')?.scrollIntoView({ behavior: 'smooth' });
+                                    }, 100);
+                                }} 
+                                className="w-full bg-emerald-600 hover:bg-emerald-500 text-white text-center py-3 rounded-xl font-bold transition-all shadow-md shadow-emerald-950/40 text-xs cursor-pointer select-none"
+                            >
                                 추천 매물 목록 둘러보기
                             </button>
                             <a href="#quick-inquiry" className="w-full bg-white/10 hover:bg-white/20 border border-white/10 text-white text-center py-3 rounded-xl font-bold transition-all text-xs">
@@ -209,35 +232,35 @@ export const MainTab = ({
                             return [...tickerPosts, ...tickerPosts].map((p, idx) => {
                                 const isRec = p.isRecommended === true || String(p.isRecommended) === 'true';
                                 return (
-                                    <div key={`${p.id}-${idx}`} onClick={() => setSelectedPostId(p.id)} className="flex items-center gap-2 sm:gap-4 px-3 py-2.5 sm:px-4 sm:py-3 border-b border-dotted border-slate-200 hover:bg-slate-50 cursor-pointer transition-colors w-full group">
+                                    <div key={`${p.id}-${idx}`} onClick={() => setSelectedPostId(p.id)} className="flex items-center gap-2 sm:gap-4 px-3 py-2.5 sm:px-4 sm:py-3.5 border-b border-dashed border-slate-200/80 hover:bg-slate-50/90 cursor-pointer transition-colors w-full group select-none">
                                         <div className="w-4 sm:w-6 shrink-0 flex items-center justify-center">
-                                            {isRec && <span className="text-amber-500 animate-sparkle text-[10px] sm:text-xs"><i className="fa-solid fa-star"></i></span>}
+                                            {isRec && <span className="text-amber-500 animate-sparkle text-[11px] sm:text-sm drop-shadow-[0_1px_1px_rgba(0,0,0,0.1)]"><i className="fa-solid fa-star"></i></span>}
                                         </div>
-                                        <span className={`shrink-0 px-1.5 py-0.5 rounded text-[9px] font-black border ${
-                                            p.transactionType === '매매' ? 'bg-indigo-50 border-indigo-100 text-indigo-600' :
-                                            p.transactionType === '전세' ? 'bg-amber-50 border-amber-100 text-amber-600' :
-                                            'bg-emerald-50 border-emerald-100 text-emerald-600'
+                                        <span className={`shrink-0 px-2 py-0.5 rounded text-[9px] sm:text-[10px] font-black border tracking-tight ${
+                                            p.transactionType === '매매' ? 'bg-indigo-50 border-indigo-200 text-indigo-700' :
+                                            p.transactionType === '전세' ? 'bg-amber-50 border-amber-200 text-amber-700' :
+                                            'bg-emerald-50 border-emerald-200 text-emerald-700'
                                         }`}>
                                             {p.transactionType || '월세'}
                                         </span>
-                                        <div className="text-xs sm:text-[13px] font-bold text-slate-700 truncate min-w-[70px] sm:w-[160px] sm:min-w-0 flex items-center gap-2">
-                                            <span className="shrink-0">{p.building}</span>
+                                        <div className="text-xs sm:text-[13.5px] font-extrabold text-slate-900 group-hover:text-emerald-700 truncate min-w-[70px] sm:w-[170px] sm:min-w-0 flex items-center gap-1.5 transition-colors">
+                                            <span className="shrink-0 font-black">{p.building}</span>
                                             {((p.panoramas && p.panoramas.trim()) || (p.panoImage && p.panoImage.trim())) && (
-                                                <span className="shrink-0 bg-emerald-100 text-emerald-700 text-[9px] px-1 rounded flex items-center gap-0.5 animate-pulse border border-emerald-200">
+                                                <span className="shrink-0 bg-emerald-100 text-emerald-800 text-[8.5px] font-black px-1 py-[1px] rounded flex items-center gap-0.5 animate-pulse border border-emerald-200">
                                                     <i className="fa-solid fa-vr-cardboard"></i>
                                                     <span>360°</span>
                                                 </span>
                                             )}
-                                            <span className="text-slate-400 font-medium">{p.floor && p.totalFloor ? `${p.floor}/${p.totalFloor}층` : p.room + '호'}</span>
+                                            <span className="text-slate-600 bg-slate-100 px-1.5 py-[1px] rounded text-[9px] sm:text-[10px] font-bold border border-slate-200/60 leading-none shrink-0">{p.floor && p.totalFloor ? `${p.floor}/${p.totalFloor}층` : p.room + '호'}</span>
                                         </div>
-                                        <div className="text-xs sm:text-[13px] font-black text-indigo-700 whitespace-nowrap sm:w-[100px]">
+                                        <div className="text-xs sm:text-[13.5px] font-black text-indigo-800 whitespace-nowrap sm:w-[110px] shrink-0 font-mono tracking-tight leading-none">
                                             {formatDisplayPrice(p.price, p.manageFee)}
                                         </div>
-                                        <div className="text-[11px] sm:text-xs font-semibold text-slate-500 whitespace-nowrap sm:w-[70px]">
+                                        <div className="text-[10px] sm:text-[11.5px] font-black text-slate-700 bg-slate-100 border border-slate-200/60 px-1.5 py-0.5 rounded-md whitespace-nowrap sm:w-[70px] text-center shrink-0">
                                             {p.category}
                                         </div>
-                                        <div className="text-[10px] sm:text-[11px] font-medium text-slate-400 truncate hidden sm:block ml-0 flex-1">
-                                            {p.dong || p.address.split(' ')[0]} {p.remarks && `· ${p.remarks.slice(0, 50)}...`}
+                                        <div className="text-[10px] sm:text-[12px] font-semibold text-slate-600 truncate hidden sm:block ml-0 flex-1 border-l border-slate-200 pl-3">
+                                            {p.dong || p.address.split(' ')[0]} {p.remarks && `· ${p.remarks.replace(/▶|■/g, '').slice(0, 50)}...`}
                                         </div>
                                     </div>
                                 );
@@ -518,9 +541,11 @@ export const MainTab = ({
             <section id="quick-inquiry" className="bg-slate-950 text-white py-12 sm:py-16 mt-12 sm:mt-20 relative overflow-hidden w-full rounded-2xl sm:rounded-3xl">
                 <div className="absolute inset-0 bg-[radial-gradient(circle_at_bottom_left,rgba(16,185,129,0.1),transparent_40%)]"></div>
                 <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10 text-center">
-                    <span className="text-emerald-400 text-[10px] sm:text-xs font-bold tracking-widest uppercase mb-2 sm:mb-3 inline-block">1:1 맞춤 부동산 컨설팅</span>
-                    <h2 className="text-xl sm:text-2xl lg:text-3xl font-black mb-3 sm:mb-4">가려운 곳을 콕 짚어 해결해 드립니다</h2>
-                    <p className="text-slate-400 text-xs sm:text-sm max-w-2xl mx-auto mb-8 sm:mb-10 leading-relaxed px-4">
+                    <span className="text-emerald-400 text-xs sm:text-sm md:text-base font-black tracking-widest uppercase mb-3 sm:mb-4 inline-block bg-emerald-500/10 border border-emerald-500/20 px-3 py-1 rounded-full animate-pulse">1:1 맞춤 부동산 컨설팅</span>
+                    <div className="py-2 overflow-hidden mb-4 sm:mb-6">
+                        <h2 className="text-2xl sm:text-4xl lg:text-5xl font-black tracking-tight animate-heading-zoom-glow">가려운 곳을 콕 짚어 해결해 드립니다</h2>
+                    </div>
+                    <p className="text-slate-300 text-xs sm:text-base max-w-2xl mx-auto mb-8 sm:mb-10 leading-relaxed px-4 font-bold">
                         세법 설계, 좋은 실거주 단지 선택 등 어떤 고민이든 남겨주시면 정직하게 분석하여 직접 답변드리겠습니다.
                     </p>
 

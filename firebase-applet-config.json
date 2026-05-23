@@ -1,9 +1,10 @@
 {
+  "projectId": "gumi-today-room-tv",
+  "appId": "1:321272965760:web:9acc86183e14f3eedc1465",
   "apiKey": "AIzaSyCQ_3eEsyqbbmx5DHv0L5PRtgplaCqsu_U",
   "authDomain": "gumi-today-room-tv.firebaseapp.com",
-  "projectId": "gumi-today-room-tv",
+  "firestoreDatabaseId": "ai-studio-e53ea637-8a33-411f-8ef0-e76fa6a49148",
   "storageBucket": "gumi-today-room-tv.firebasestorage.app",
   "messagingSenderId": "321272965760",
-  "appId": "1:321272965760:web:74308dab297d2680dc1465",
-  "measurementId": "G-CT6K3LQ7PT"
+  "measurementId": ""
 }

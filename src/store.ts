@@ -5,6 +5,9 @@ interface AppState {
     posts: Post[];
     inquiries: Inquiry[];
     isAdminLoggedIn: boolean;
+    isMemberLoggedIn: boolean;
+    memberEmail: string | null;
+    memberName: string | null;
     showOnlyRecommended: boolean;
     activeCategory: string;
     activeDong: string;
@@ -17,6 +20,7 @@ interface AppState {
     setPosts: (posts: Post[]) => void;
     setInquiries: (inqs: Inquiry[]) => void;
     setIsAdminLoggedIn: (val: boolean) => void;
+    setMemberLoggedIn: (val: boolean, email: string | null, name: string | null) => void;
     setShowOnlyRecommended: (val: boolean) => void;
     setActiveCategory: (cat: string) => void;
     setActiveDong: (dong: string) => void;
@@ -31,6 +35,9 @@ export const useAppStore = create<AppState>((set) => ({
     posts: defaultPosts,
     inquiries: [],
     isAdminLoggedIn: false,
+    isMemberLoggedIn: false,
+    memberEmail: null,
+    memberName: null,
     showOnlyRecommended: false,
     activeCategory: 'all',
     activeDong: 'all',
@@ -43,6 +50,7 @@ export const useAppStore = create<AppState>((set) => ({
     setPosts: (posts) => set({ posts }),
     setInquiries: (inqs) => set({ inquiries: inqs }),
     setIsAdminLoggedIn: (val) => set({ isAdminLoggedIn: val }),
+    setMemberLoggedIn: (val, email, name) => set({ isMemberLoggedIn: val, memberEmail: email, memberName: name }),
     setShowOnlyRecommended: (val) => set({ showOnlyRecommended: val, currentPage: 1 }),
     setActiveCategory: (cat) => set({ activeCategory: cat, activeDong: 'all', currentPage: 1 }),
     setActiveDong: (dong) => set({ activeDong: dong, currentPage: 1 }),
