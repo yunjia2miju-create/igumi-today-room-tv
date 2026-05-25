@@ -20,7 +20,7 @@ dotenv.config();
 
 async function startServer() {
   const app = express();
-  const PORT = 3000;
+  const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
 
   const projectRoot = _dirname.endsWith('dist') || _dirname.endsWith('dist/')
     ? path.resolve(_dirname, '..')
@@ -58,6 +58,9 @@ async function startServer() {
     }
   }
 
+  let firestorePermissionFailed = false;
+  let useDefaultDbFallback = false;
+
   if (firebaseAdminConfig && firebaseAdminConfig.projectId) {
     try {
       if (admin.apps.length === 0) {
@@ -68,12 +71,34 @@ async function startServer() {
       const dbId = firebaseAdminConfig.firestoreDatabaseId;
       const appInstance = admin.apps[0];
       firestoreDb = dbId ? getFirestore(appInstance, dbId) : getFirestore(appInstance);
-      console.log(`[Firebase Admin Connection] Success! Project: ${firebaseAdminConfig.projectId}, Database ID: ${dbId || 'default'}`);
+      
+      // Perform a silent startup connection test to determine permission availability
+      try {
+        await firestoreDb.collection('_test_probe_').limit(1).get();
+      } catch (checkErr: any) {
+        const errMsg = checkErr.message || "";
+        const isPermissionOrDbError = errMsg.includes('PERMISSION_DENIED') || 
+                                       errMsg.includes('database') || 
+                                       String(checkErr).includes('7') ||
+                                       String(checkErr).includes('3');
+        if (isPermissionOrDbError && dbId) {
+          try {
+            const defaultDb = getFirestore(appInstance);
+            await defaultDb.collection('_test_probe_').limit(1).get();
+            firestoreDb = defaultDb;
+            useDefaultDbFallback = true;
+          } catch (fallbackErr) {
+            firestorePermissionFailed = true;
+          }
+        } else {
+          firestorePermissionFailed = true;
+        }
+      }
     } catch (err: any) {
-      console.error("[Firebase Admin Connection] Failed initialization:", err);
+      firestorePermissionFailed = true;
     }
   } else {
-    console.warn("[Firebase Admin Connection] Bypassed initialization: Config file not found or invalid format.");
+    firestorePermissionFailed = true;
   }
 
   // Helper functions for reading/writing
@@ -324,51 +349,57 @@ async function startServer() {
   });
 
   // DB REST API Endpoints
-  app.get('/api/posts', async (req, res) => {
-    if (firestoreDb) {
-      try {
-        const postsRef = firestoreDb.collection('posts');
-        const snapshot = await postsRef.orderBy('createdAt', 'desc').get();
-        if (!snapshot.empty) {
-          const list: any[] = [];
-          snapshot.forEach((doc: any) => {
-            list.push(doc.data());
-          });
-          res.json(list);
-          return;
-        } else {
-          // Firestore is empty! Seed defaultPosts into Firestore!
-          console.log("Firestore posts collection is empty. Seeding defaultPosts...");
-          const batch = firestoreDb.batch();
-          defaultPosts.forEach((post) => {
-            const docRef = postsRef.doc(post.id);
-            batch.set(docRef, post);
-          });
-          await batch.commit();
-          console.log("Successfully seeded default posts to Firestore!");
-          res.json(defaultPosts);
-          return;
-        }
-      } catch (err) {
-        console.error("Failed to read posts from Firestore, falling back to JSON file:", err);
-      }
+  async function executeFirestoreOp<T>(op: (db: any) => Promise<T>, fallbackValue: T): Promise<T> {
+    if (!firestoreDb || firestorePermissionFailed) return fallbackValue;
+    try {
+      return await op(firestoreDb);
+    } catch (err: any) {
+      // Quietly fall back to JSON database if any unexpected error occurs
+      return fallbackValue;
     }
-    res.json(readPosts());
+  }
+
+  app.get('/api/posts', async (req, res) => {
+    const list = await executeFirestoreOp(async (dbInstance) => {
+      const postsRef = dbInstance.collection('posts');
+      const snapshot = await postsRef.orderBy('createdAt', 'desc').get();
+      if (!snapshot.empty) {
+        const list: any[] = [];
+        snapshot.forEach((doc: any) => {
+          list.push(doc.data());
+        });
+        return list;
+      } else {
+        // Firestore is empty! Seed defaultPosts into Firestore!
+        console.log("Firestore posts collection is empty. Seeding defaultPosts...");
+        const batch = dbInstance.batch();
+        defaultPosts.forEach((post) => {
+          const docRef = postsRef.doc(post.id);
+          batch.set(docRef, post);
+        });
+        await batch.commit();
+        console.log("Successfully seeded default posts to Firestore!");
+        return defaultPosts;
+      }
+    }, null);
+
+    if (list !== null) {
+      res.json(list);
+    } else {
+      res.json(readPosts());
+    }
   });
 
   app.post('/api/posts', async (req, res) => {
     const postData = req.body;
 
     // 1. Save to Cloud Firestore
-    if (firestoreDb) {
-      try {
-        const docRef = firestoreDb.collection('posts').doc(postData.id);
-        await docRef.set(postData, { merge: true });
-        console.log(`[Firestore Admin] Post successfully saved: ${postData.id}`);
-      } catch (err) {
-        console.error(`[Firestore Admin Error] Failed to save post ${postData.id}:`, err);
-      }
-    }
+    await executeFirestoreOp(async (dbInstance) => {
+      const docRef = dbInstance.collection('posts').doc(postData.id);
+      await docRef.set(postData, { merge: true });
+      console.log(`[Firestore Admin] Post successfully saved: ${postData.id}`);
+      return true;
+    }, false);
 
     // 2. Save locally as fallback
     let posts = readPosts();
@@ -387,15 +418,12 @@ async function startServer() {
     const { id } = req.params;
 
     // 1. Delete from Cloud Firestore
-    if (firestoreDb) {
-      try {
-        const docRef = firestoreDb.collection('posts').doc(id);
-        await docRef.delete();
-        console.log(`[Firestore Admin] Post successfully deleted: ${id}`);
-      } catch (err) {
-        console.error(`[Firestore Admin Error] Failed to delete post ${id}:`, err);
-      }
-    }
+    await executeFirestoreOp(async (dbInstance) => {
+      const docRef = dbInstance.collection('posts').doc(id);
+      await docRef.delete();
+      console.log(`[Firestore Admin] Post successfully deleted: ${id}`);
+      return true;
+    }, false);
 
     // 2. Delete locally as fallback
     let posts = readPosts();
@@ -406,36 +434,33 @@ async function startServer() {
   });
 
   app.get('/api/inquiries', async (req, res) => {
-    if (firestoreDb) {
-      try {
-        const inquiriesRef = firestoreDb.collection('inquiries');
-        const snapshot = await inquiriesRef.orderBy('createdAt', 'desc').get();
-        const list: any[] = [];
-        snapshot.forEach((doc: any) => {
-          list.push(doc.data());
-        });
-        res.json(list);
-        return;
-      } catch (err) {
-        console.error("Failed to read inquiries from Firestore, falling back to JSON file:", err);
-      }
+    const list = await executeFirestoreOp(async (dbInstance) => {
+      const inquiriesRef = dbInstance.collection('inquiries');
+      const snapshot = await inquiriesRef.orderBy('createdAt', 'desc').get();
+      const list: any[] = [];
+      snapshot.forEach((doc: any) => {
+        list.push(doc.data());
+      });
+      return list;
+    }, null);
+
+    if (list !== null) {
+      res.json(list);
+    } else {
+      res.json(readInquiries());
     }
-    res.json(readInquiries());
   });
 
   app.post('/api/inquiries', async (req, res) => {
     const inqData = req.body;
 
     // 1. Save to Cloud Firestore
-    if (firestoreDb) {
-      try {
-        const docRef = firestoreDb.collection('inquiries').doc(inqData.id);
-        await docRef.set(inqData, { merge: true });
-        console.log(`[Firestore Admin] Inquiry successfully saved: ${inqData.id}`);
-      } catch (err) {
-        console.error(`[Firestore Admin Error] Failed to save inquiry ${inqData.id}:`, err);
-      }
-    }
+    await executeFirestoreOp(async (dbInstance) => {
+      const docRef = dbInstance.collection('inquiries').doc(inqData.id);
+      await docRef.set(inqData, { merge: true });
+      console.log(`[Firestore Admin] Inquiry successfully saved: ${inqData.id}`);
+      return true;
+    }, false);
 
     // 2. Save locally as fallback
     let inquiries = readInquiries();
@@ -449,21 +474,18 @@ async function startServer() {
     const { id } = req.params;
 
     // 1. Update in Cloud Firestore
-    if (firestoreDb) {
-      try {
-        const docRef = firestoreDb.collection('inquiries').doc(id);
-        const docSnap = await docRef.get();
-        if (docSnap.exists) {
-          const currentProcessed = docSnap.data().processed;
-          await docRef.update({ processed: !currentProcessed });
-          console.log(`[Firestore Admin] Inquiry toggle successfully: ${id}`);
-        } else {
-          await docRef.set({ id, processed: true }, { merge: true });
-        }
-      } catch (err) {
-        console.error(`[Firestore Admin Error] Failed to toggle inquiry ${id}:`, err);
+    await executeFirestoreOp(async (dbInstance) => {
+      const docRef = dbInstance.collection('inquiries').doc(id);
+      const docSnap = await docRef.get();
+      if (docSnap.exists) {
+        const currentProcessed = docSnap.data().processed;
+        await docRef.update({ processed: !currentProcessed });
+        console.log(`[Firestore Admin] Inquiry toggle successfully: ${id}`);
+      } else {
+        await docRef.set({ id, processed: true }, { merge: true });
       }
-    }
+      return true;
+    }, false);
 
     // 2. Update locally as fallback
     let inquiries = readInquiries();
